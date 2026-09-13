@@ -1,0 +1,77 @@
+# ============================================================
+# Конфигурация прототипа "Геометрическая живость" (PAD).
+# Все пути указываются относительно корня репозитория.
+# ============================================================
+
+seed: 42                      # единственный источник случайности для всего проекта
+
+paths:
+  raw_dir: data/raw           # сюда пользователь кладёт видео
+  metadata_csv: data/metadata.csv
+  results_dir: results
+  figures_dir: figures
+  landmarks_dir: results/landmarks
+
+extraction:
+  # MediaPipe FaceMesh
+  max_num_faces: 1
+  refine_landmarks: true       # уточнённые точки глаз/губ
+  min_detection_confidence: 0.5
+  min_tracking_confidence: 0.5
+  static_image_mode: false     # false = режим видео (трекинг между кадрами)
+  max_frames: 120              # верхний предел числа обрабатываемых кадров (~4 c @30fps)
+  frame_stride: 1              # 1 = обрабатывать каждый кадр
+  overwrite: false             # true = пересчитывать landmark-CSV, даже если он уже есть
+
+quality_control:
+  min_valid_frames: 10         # минимум кадров с найденным лицом
+  min_valid_ratio: 0.5         # минимум доли валидных кадров от прочитанных
+  min_iod_pixels_norm: 0.02    # минимальное межзрачковое расстояние в норм. координатах
+  max_abs_coord: 5.0           # защита от аномальных значений координат
+
+features:
+  epsilon: 1.0e-8              # epsilon из математической модели
+  # Названия временных признаков (дисперсий) — порядок важен для PLS.
+  g_features: [G1, G2, G3]
+
+pls:
+  # Направление правила классификации.
+  #   auto  -> определяется ТОЛЬКО по обучающим субъектам каждого фолда
+  #   live_high / live_low -> фиксируется вручную (для отладки)
+  direction: auto
+  # Способ выбора порога tau (только на train/val субъектах!):
+  #   min_acer  -> минимизация ACER
+  #   min_risk  -> минимизация L(tau) = lambda_attack*APCER + lambda_live*BPCER
+  threshold_rule: min_acer
+  lambda_attack: 1.0
+  lambda_live: 1.0
+  # Если обучающих субъектов слишком мало для внутренней валидации —
+  # используется фиксированное документированное правило (см. protocol.md).
+  min_train_subjects_for_inner_val: 3
+  fallback_threshold: 0.0      # tau по умолчанию, если порог выбрать невозможно
+
+baseline:
+  # B1: статический однокадровый 2D-базлайн (LogisticRegression)
+  use_laplacian_sharpness: true
+  logreg_C: 1.0
+  logreg_max_iter: 1000
+  class_weight: balanced
+
+evaluation:
+  protocol: loso               # leave-one-subject-out (единственный основной протокол)
+  bootstrap_ci: true           # опционально: bootstrap-доверительные интервалы
+  bootstrap_n: 1000
+  bootstrap_alpha: 0.05
+  ablation: true               # опционально: PLS без G1 / без G2 / без G3
+
+noise_experiment:
+  enabled: true
+  # sigma-сетка для синтетической модели шума z_obs = z_true + eta, eta ~ N(0, sigma^2)
+  sigma_grid: [0.0, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1]
+  repeats: 20                  # число повторов на каждое sigma
+  apply_to: z                  # "z" = шум в псевдоглубине landmark'ов
+
+plotting:
+  dpi: 200
+  figsize_default: [7.0, 5.0]
+  style: whitegrid

@@ -1,0 +1,25 @@
+# ---- Сырые биометрические данные НИКОГДА не коммитятся ----
+data/raw/**
+!data/raw/.gitkeep
+
+# Результаты работы пайплайна (воспроизводимы из данных)
+results/**
+!results/.gitkeep
+figures/**
+!figures/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ОС / редакторы
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

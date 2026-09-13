@@ -1,0 +1,21 @@
+video_id,relative_path,subject_id,label,attack_type,device,lighting,notes
+# ---------------------------------------------------------------------------
+# ШАБЛОН. Строки, начинающиеся с '#', игнорируются пайплайном.
+# Удалите '#' и впишите свои записи (по одной строке на видеофайл).
+#
+# video_id      : уникальный идентификатор видео (без пробелов)
+# relative_path : путь ОТНОСИТЕЛЬНО data/raw/
+# subject_id    : идентификатор участника (псевдоним, НЕ настоящее имя!)
+# label         : live | attack
+# attack_type   : none | print | screen | replay | curved_print
+#                 (для label=live обязательно none; для attack — НЕ none)
+# device        : чем снимали / чем предъявляли атаку
+# lighting      : условия освещения
+# notes         : свободный комментарий
+# ---------------------------------------------------------------------------
+# s001_live_01,subject_001/live/live_01.mp4,subject_001,live,none,webcam_720p,office_daylight,поворот головы влево-вправо
+# s001_print_01,subject_001/print/print_01.mp4,subject_001,attack,print,webcam_720p,office_daylight,фото A4 матовая печать
+# s001_screen_01,subject_001/screen/screen_01.mp4,subject_001,attack,screen,webcam_720p,office_daylight,телефон 6.1 дюйма
+# s002_live_01,subject_002/live/live_01.mp4,subject_002,live,none,webcam_720p,lamp_only,кивок головой
+# s002_print_01,subject_002/print/print_01.mp4,subject_002,attack,print,webcam_720p,lamp_only,фото A4 глянец
+# s002_screen_01,subject_002/screen/screen_01.mp4,subject_002,attack,screen,webcam_720p,lamp_only,ноутбук

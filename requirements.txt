@@ -1,0 +1,15 @@
+# Минимальный набор зависимостей (только CPU, без облачных API).
+# Python >= 3.10
+numpy>=1.24
+pandas>=2.0
+scikit-learn>=1.3
+matplotlib>=3.7
+seaborn>=0.12
+pyyaml>=6.0
+opencv-python>=4.8
+# ВАЖНО: ветка 0.10.x содержит встроенную модель FaceMesh и не требует загрузки
+# файлов из сети. В mediapipe>=1.0 solutions.face_mesh удалён и нужен локальный
+# файл модели face_landmarker.task (см. README, раздел "Установка").
+mediapipe>=0.10,<1.0
+# Для тестов (необязательно для запуска пайплайна):
+pytest>=7.4
