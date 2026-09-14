@@ -66,13 +66,23 @@ class PLSModel:
     def _raw_matrix(self, df: pd.DataFrame) -> np.ndarray:
         return df[self.g_features].to_numpy(dtype=np.float64)
 
-    def _pls_raw(self, df: pd.DataFrame) -> np.ndarray:
-        """PLS до применения направления (среднее нормированных G)."""
+    def _combine(self, g_norm: np.ndarray) -> np.ndarray:
+        """Свернуть нормированные признаки в одну величину.
+
+        Единственное место, где задан способ объединения G1..G3. И обычный
+        скор, и внутренняя валидация для выбора порога обязаны пользоваться
+        им же: иначе tau подбирается по одной шкале, а применяется к другой.
+        """
+        return g_norm.mean(axis=1)
+
+    def _normalize(self, df: pd.DataFrame) -> np.ndarray:
         if self.mean_ is None or self.std_ is None:
             raise RuntimeError("PLSModel не обучен: сначала вызовите fit().")
-        g = self._raw_matrix(df)
-        g_norm = (g - self.mean_) / (self.std_ + self.epsilon)
-        return g_norm.mean(axis=1)
+        return (self._raw_matrix(df) - self.mean_) / (self.std_ + self.epsilon)
+
+    def _pls_raw(self, df: pd.DataFrame) -> np.ndarray:
+        """PLS до применения направления."""
+        return self._combine(self._normalize(df))
 
     @staticmethod
     def _fit_stats(g: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -154,7 +164,7 @@ class PLSModel:
             g_inner = self._raw_matrix(inner_train)
             mean_i, std_i = self._fit_stats(g_inner)
             g_val = (self._raw_matrix(inner_val) - mean_i) / (std_i + self.epsilon)
-            pls_val = g_val.mean(axis=1)
+            pls_val = self._combine(g_val)
             oriented = pls_val if self.direction_ == "live_high" else -pls_val
             scores.extend(oriented.tolist())
             ys.extend(inner_val["y"].astype(int).tolist())
@@ -180,4 +190,96 @@ class PLSModel:
         out["score_oriented"] = self._orient(out["PLS"].to_numpy())
         out["tau"] = self.tau_
         out["direction"] = self.direction_
+        return out
+
+
+class WeightedPLSModel(PLSModel):
+    """PLS со взвешиванием признаков по их разделяющей способности.
+
+    Мотивация — результат эксперимента с шумом (`research_log.md`, запись 10):
+    равновесное среднее пропускает испорченный признак в итоговую оценку с
+    полным весом ``1/3``, и порча одного признака из трёх уводит ``ACER`` с
+    ``0.000`` до ``0.262``. Здесь вес признака определяется тем, насколько он
+    в действительности разделяет классы:
+
+        a_k = |2 * AUC_k - 1|                    (ранговое разделение классов)
+        w_k = a_k / sum_j a_j,          PLS = sum_k w_k * Gk_norm
+
+    ``AUC_k`` — площадь под ROC-кривой признака на обучающих субъектах, то
+    есть доля пар «живое/атака», которые признак упорядочивает верно.
+    Обучаемых весов в смысле градиентного обучения нет: веса суть
+    описательная статистика обучающей выборки.
+
+    ПОЧЕМУ НЕ РАЗНОСТЬ СРЕДНИХ. Первой была опробована стандартизованная
+    разность средних (величина Коэна). Она оказалась непригодна: эта мера
+    делит на разброс внутри класса, а у ``G2`` разброс велик
+    (``4.98e-2 … 8.99e-1`` у живых записей), хотя классы он разделяет
+    полностью. В результате наибольший вес получал ``G1`` — признак, про
+    который в записи 9 журнала показано, что он классы не разделяет вовсе.
+    Ранговая мера от разброса не зависит и этим дефектом не страдает.
+
+    ВАЖНО О ЧЕСТНОСТИ ПРОТОКОЛА. Эта модель **не заменяет** предложенную:
+    равные веса ``1/3`` зафиксированы протоколом до сбора данных, и основной
+    результат работы приводится именно для них. Здесь — дополнительный,
+    разведочный анализ, выполненный уже после того, как данные увидены.
+
+    Веса оцениваются **только на обучающих субъектах** внешнего фолда.
+    Внутренняя валидация для выбора порога переоценивает нормализацию на своей
+    части, но пользуется весами внешнего обучения; тестовый субъект не влияет
+    ни на то, ни на другое. Порог подбирается по той же свёртке признаков,
+    которая затем применяется (см. :meth:`PLSModel._combine`).
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.weights_: np.ndarray | None = None
+
+    def _separability_weights(self, g_norm: np.ndarray, y: np.ndarray) -> np.ndarray:
+        """Веса по ранговому разделению классов (|2*AUC - 1|) на обучающих данных."""
+        from src.evaluation import roc_auc
+
+        n_features = g_norm.shape[1]
+        equal = np.full(n_features, 1.0 / n_features)
+        if len(np.unique(y)) < 2:
+            return equal
+
+        strength = np.empty(n_features, dtype=float)
+        for k in range(n_features):
+            column = g_norm[:, k]
+            if not np.isfinite(column).all() or np.ptp(column) <= self.epsilon:
+                strength[k] = 0.0        # постоянный или испорченный признак
+                continue
+            strength[k] = abs(2.0 * roc_auc(y, column) - 1.0)
+
+        total = float(strength.sum())
+        if not np.isfinite(total) or total <= self.epsilon:
+            # Ни один признак не разделяет классы — вырождаемся в равные веса.
+            return equal
+        return strength / total
+
+    def _combine(self, g_norm: np.ndarray) -> np.ndarray:
+        """Взвешенная сумма вместо равновесного среднего."""
+        if self.weights_ is None:
+            return g_norm.mean(axis=1)
+        return g_norm @ self.weights_
+
+    def fit(self, train_df: pd.DataFrame) -> "WeightedPLSModel":
+        """Оценить веса на обучающих субъектах, затем обучить как обычный PLS."""
+        if train_df.empty:
+            raise ValueError("WeightedPLSModel.fit получил пустую обучающую выборку.")
+        g = self._raw_matrix(train_df)
+        mean, std = self._fit_stats(g)
+        g_norm = (g - mean) / (std + self.epsilon)
+        self.weights_ = self._separability_weights(
+            g_norm, train_df["y"].to_numpy(dtype=int)
+        )
+        super().fit(train_df)
+        return self
+
+    def explain(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Покомпонентный разбор с фактическими весами признаков."""
+        out = super().explain(df)
+        if self.weights_ is not None:
+            for name, weight in zip(self.g_features, self.weights_):
+                out[f"{name}_weight"] = float(weight)
         return out

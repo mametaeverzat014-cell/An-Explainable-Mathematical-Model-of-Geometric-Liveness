@@ -66,6 +66,25 @@ def recompute_features_with_noise(
     return noisy
 
 
+def _models(config: Config) -> dict[str, Any]:
+    """Модели эксперимента с шумом.
+
+    Кроме зафиксированных протоколом B0/B1/M1 добавлена разведочная
+    взвешенная модель M2: именно этот эксперимент выявил дефект равновесного
+    усреднения, поэтому проверять предложенное исправление нужно здесь же.
+    Основной результат работы по-прежнему приводится для M1 с весами 1/3.
+    """
+    from src.baseline import MajorityBaseline, StaticBaseline2D
+    from src.pls_model import PLSModel, WeightedPLSModel
+
+    return {
+        "B0_majority": lambda: MajorityBaseline(),
+        "B1_static2d": lambda: StaticBaseline2D(config),
+        "M1_pls": lambda: PLSModel(config),
+        "M2_pls_weighted": lambda: WeightedPLSModel(config),
+    }
+
+
 def run_noise_experiment(config: Config, features: pd.DataFrame) -> pd.DataFrame:
     """Прогнать сетку sigma и сохранить метрики устойчивости.
 
@@ -96,7 +115,8 @@ def run_noise_experiment(config: Config, features: pd.DataFrame) -> pd.DataFrame
                 features, landmarks_dir, sigma, rng, epsilon, max_abs_coord
             )
             _, _, pooled, _ = run_loso(
-                noisy_features, config, save=False, bootstrap=False
+                noisy_features, config, model_builders=_models(config),
+                save=False, bootstrap=False,
             )
             for _, row in pooled.iterrows():
                 rows.append(

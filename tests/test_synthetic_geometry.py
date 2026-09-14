@@ -326,3 +326,64 @@ def test_feature_contributions_sum_to_the_decision_score() -> None:
     contributions = sum(sign * explained[f"{name}_norm"] / 3.0 for name in ("G1", "G2", "G3"))
 
     assert np.allclose(contributions.to_numpy(), model.score(data), atol=1e-12)
+
+
+# --------------------------------------------------------------------------
+# Взвешивание признаков по разделяющей способности
+# --------------------------------------------------------------------------
+def test_weighted_model_drops_weight_of_a_destroyed_feature() -> None:
+    """Признак, превращённый в шум, должен получить вес, близкий к нулю.
+
+    Это то самое исправление дефекта из записи 10 журнала: при равных весах
+    испорченный G1 входит в оценку с полным весом 1/3 и размывает решение.
+    """
+    from src.pls_model import WeightedPLSModel
+    from src.synthetic_study import build_synthetic_dataset
+    from src.utils import load_config
+
+    config = load_config(Path(__file__).resolve().parent.parent / "configs" / "prototype.yaml")
+
+    clean = WeightedPLSModel(config).fit(build_synthetic_dataset(n_subjects=8, seed=42))
+    noisy = WeightedPLSModel(config).fit(
+        build_synthetic_dataset(n_subjects=8, sigma=0.05, seed=42)
+    )
+    g1_clean, g1_noisy = float(clean.weights_[0]), float(noisy.weights_[0])
+
+    assert g1_noisy < g1_clean / 3.0, "вес разрушенного G1 обязан резко упасть"
+    assert g1_noisy < 0.10
+
+
+def test_weights_are_a_probability_vector() -> None:
+    """Веса неотрицательны и в сумме дают единицу при любом наборе данных."""
+    from src.pls_model import WeightedPLSModel
+    from src.synthetic_study import build_synthetic_dataset
+    from src.utils import load_config
+
+    config = load_config(Path(__file__).resolve().parent.parent / "configs" / "prototype.yaml")
+    for sigma in (0.0, 0.01, 0.5):
+        model = WeightedPLSModel(config).fit(
+            build_synthetic_dataset(n_subjects=6, sigma=sigma, seed=11)
+        )
+        assert (model.weights_ >= 0).all()
+        assert float(model.weights_.sum()) == pytest.approx(1.0)
+
+
+def test_weighted_model_picks_threshold_on_its_own_score_scale() -> None:
+    """Порог обязан выбираться по той же свёртке, которая потом применяется.
+
+    Если внутренняя валидация усредняет признаки равновесно, а итоговый скор
+    взвешен, tau подбирается по одной шкале и применяется к другой. Тест
+    ловит именно это расхождение.
+    """
+    from src.pls_model import WeightedPLSModel
+    from src.synthetic_study import build_synthetic_dataset
+    from src.utils import load_config
+
+    config = load_config(Path(__file__).resolve().parent.parent / "configs" / "prototype.yaml")
+    data = build_synthetic_dataset(n_subjects=6, seed=5)
+    model = WeightedPLSModel(config).fit(data)
+
+    # Свёртка модели должна быть взвешенной, а не средним.
+    g_norm = model._normalize(data)
+    assert np.allclose(model._combine(g_norm), g_norm @ model.weights_)
+    assert not np.allclose(model._combine(g_norm), g_norm.mean(axis=1))
