@@ -300,3 +300,29 @@ def test_replay_attack_passes_liveness_check_in_full_pipeline() -> None:
     assert share_live["none"] > 0.9, "живые записи должны проходить проверку"
     assert share_live["screen"] < 0.3, "атака статическим фото должна отсеиваться"
     assert share_live["replay"] > 0.9, "модель не распознаёт атаку воспроизведением"
+
+
+# --------------------------------------------------------------------------
+# Объяснимость: разбор вкладов обязан совпадать с фактическим решением
+# --------------------------------------------------------------------------
+def test_feature_contributions_sum_to_the_decision_score() -> None:
+    """Сумма вкладов G1, G2, G3 равна ориентированному скору модели.
+
+    Демонстрационный скрипт показывает вклад каждого признака как
+    ``sign * Gk_norm / 3``. Если эта разбивка разойдётся с величиной, по
+    которой модель на самом деле принимает решение, объяснение станет
+    красивой, но ложной картинкой. Тест закрывает именно этот риск.
+    """
+    from src.pls_model import PLSModel
+    from src.synthetic_study import build_synthetic_dataset
+    from src.utils import load_config
+
+    config = load_config(Path(__file__).resolve().parent.parent / "configs" / "prototype.yaml")
+    data = build_synthetic_dataset(n_subjects=4, seed=7)
+    model = PLSModel(config).fit(data)
+
+    explained = model.explain(data)
+    sign = 1.0 if model.direction_ == "live_high" else -1.0
+    contributions = sum(sign * explained[f"{name}_norm"] / 3.0 for name in ("G1", "G2", "G3"))
+
+    assert np.allclose(contributions.to_numpy(), model.score(data), atol=1e-12)
