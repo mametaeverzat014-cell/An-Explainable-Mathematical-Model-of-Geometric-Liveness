@@ -137,38 +137,104 @@ def threshold_candidates(scores: np.ndarray) -> np.ndarray:
     return np.concatenate([[s[0] - 1e-6], mids, [s[-1] + 1e-6]])
 
 
+#: Поддерживаемые правила выбора порога.
+THRESHOLD_RULES = ("min_acer", "min_acer_mid", "min_risk", "eer", "class_midpoint", "fixed_zero")
+
+
+def _objective_curve(
+    scores: np.ndarray, y_true: np.ndarray, rule: str, lam_attack: float, lam_live: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """Значения целевой функции по сетке порогов-кандидатов."""
+    taus = threshold_candidates(scores)
+    values = np.full(taus.shape, np.nan)
+    for i, tau in enumerate(taus):
+        y_pred = (scores >= tau).astype(int)
+        if rule == "min_risk":
+            values[i] = risk(y_true, y_pred, lam_attack, lam_live)
+        elif rule == "eer":
+            a, b = apcer(y_true, y_pred), bpcer(y_true, y_pred)
+            values[i] = abs(a - b) if not (np.isnan(a) or np.isnan(b)) else np.nan
+        else:
+            values[i] = acer(y_true, y_pred)
+    return taus, values
+
+
 def select_threshold(
     scores: np.ndarray,
     y_true: np.ndarray,
-    rule: str = "min_acer",
+    rule: str = "min_acer_mid",
     lam_attack: float = 1.0,
     lam_live: float = 1.0,
 ) -> tuple[float, float]:
-    """Подобрать tau, минимизируя ACER или L(tau).
+    """Подобрать порог tau по обучающим данным.
 
     Предполагается ориентированный скор: ``live`` предсказывается при
     ``score >= tau``.
 
+    Правила:
+        ``min_acer``
+            минимум ACER, **левый край** оптимального плато. Историческое
+            правило; смещено, поскольку оптимум ACER — это не точка, а отрезок
+            порогов, и левый край лежит вплотную к обучающей точке.
+        ``min_acer_mid``
+            минимум ACER, **середина** оптимального плато. Устраняет смещение
+            предыдущего правила: порог отодвигается от ближайших обучающих
+            наблюдений на максимальное расстояние.
+        ``min_risk``
+            минимум L(tau) = lambda_attack·APCER + lambda_live·BPCER
+            (середина плато).
+        ``eer``
+            точка равных ошибок: APCER ≈ BPCER.
+        ``class_midpoint``
+            середина между средними скорами классов. Не использует перебор
+            порогов вовсе, поэтому наименее чувствительно к отдельным
+            наблюдениям.
+        ``fixed_zero``
+            фиксированный порог 0. Осмыслен для PLS, так как признаки
+            центрированы по обучающей выборке, и 0 — её среднее.
+
     Returns:
-        (tau, значение целевой функции).
+        (tau, значение целевой функции; NaN для правил без перебора).
     """
     scores = np.asarray(scores, dtype=float)
     y_true = np.asarray(y_true, dtype=int)
-    best_tau, best_obj = 0.0, np.inf
-    for tau in threshold_candidates(scores):
-        y_pred = (scores >= tau).astype(int)
-        obj = (
-            acer(y_true, y_pred)
-            if rule == "min_acer"
-            else risk(y_true, y_pred, lam_attack, lam_live)
-        )
-        if np.isnan(obj):
-            continue
-        if obj < best_obj - 1e-12:
-            best_tau, best_obj = float(tau), float(obj)
-    if not np.isfinite(best_obj):
+
+    if rule == "fixed_zero":
         return 0.0, float("nan")
-    return best_tau, best_obj
+
+    if rule == "class_midpoint":
+        live, attack = scores[y_true == 1], scores[y_true == 0]
+        if live.size == 0 or attack.size == 0:
+            return 0.0, float("nan")
+        return float((live.mean() + attack.mean()) / 2.0), float("nan")
+
+    if rule not in THRESHOLD_RULES:
+        raise ValueError(f"Неизвестное правило выбора порога: {rule!r}. Доступны: {THRESHOLD_RULES}")
+
+    taus, values = _objective_curve(scores, y_true, rule, lam_attack, lam_live)
+    finite = np.isfinite(values)
+    if not finite.any():
+        return 0.0, float("nan")
+
+    finite_taus, finite_values = taus[finite], values[finite]
+    best = float(np.nanmin(finite_values))
+    optimal_idx = np.flatnonzero(np.isclose(finite_values, best, atol=1e-12))
+
+    if rule == "min_acer":
+        # историческое поведение: левый край множества оптимумов
+        return float(finite_taus[optimal_idx[0]]), best
+
+    # Множество оптимальных порогов НЕ обязано быть связным: проходя мимо
+    # живой записи, мы увеличиваем BPCER, проходя мимо атаки — уменьшаем
+    # APCER, и при равных размерах классов эти изменения взаимно гасятся,
+    # поэтому одинаковое значение ACER может достигаться на нескольких
+    # разделённых отрезках. Середина между крайними оптимумами попала бы
+    # в промежуток между ними, где ошибка выше. Берём середину САМОГО
+    # ДЛИННОГО непрерывного участка — порог с наибольшим запасом до
+    # ближайших обучающих наблюдений.
+    runs = np.split(optimal_idx, np.flatnonzero(np.diff(optimal_idx) > 1) + 1)
+    longest = max(runs, key=len)
+    return float((finite_taus[longest[0]] + finite_taus[longest[-1]]) / 2.0), best
 
 
 # --------------------------------------------------------------------------

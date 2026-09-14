@@ -52,14 +52,14 @@ class StaticBaseline2D:
         tau_: порог на предсказанной вероятности класса live.
     """
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, threshold_rule: str | None = None) -> None:
         cfg = config.get("baseline", {})
         pls_cfg = config.get("pls", {})
         self.C = float(cfg.get("logreg_C", 1.0))
         self.max_iter = int(cfg.get("logreg_max_iter", 1000))
         self.class_weight = cfg.get("class_weight", "balanced")
         self.seed = config.seed
-        self.rule = str(pls_cfg.get("threshold_rule", "min_acer"))
+        self.rule = str(threshold_rule or pls_cfg.get("threshold_rule", "min_acer_mid"))
         self.lam_attack = float(pls_cfg.get("lambda_attack", 1.0))
         self.lam_live = float(pls_cfg.get("lambda_live", 1.0))
 

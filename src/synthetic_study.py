@@ -331,8 +331,18 @@ def run_synthetic_study(config: Config, n_subjects: int = 8) -> dict[str, pd.Dat
     noise.to_csv(out_dir / "synthetic_noise_sweep.csv", index=False)
     predictions.to_csv(out_dir / "synthetic_predictions.csv", index=False)
 
+    logger.info("E5: сравнение правил выбора порога")
+    rule_frames = []
+    for n_sub in (4, 8):
+        frame = experiment_threshold_rules(config, n_seeds=20, n_subjects=n_sub)
+        frame.insert(0, "n_subjects", n_sub)
+        rule_frames.append(frame)
+    rules = pd.concat(rule_frames, ignore_index=True)
+    rules.to_csv(out_dir / "synthetic_threshold_rules.csv", index=False)
+
     logger.info("Таблицы сохранены в %s", out_dir)
     return {
+        "rules": rules,
         "depth": depth,
         "distance": distance,
         "motion": motion,
@@ -340,3 +350,70 @@ def run_synthetic_study(config: Config, n_subjects: int = 8) -> dict[str, pd.Dat
         "noise": noise,
         "predictions": predictions,
     }
+
+
+# --------------------------------------------------------------------------
+# E5. Сравнение правил выбора порога
+# --------------------------------------------------------------------------
+#: Правила, участвующие в сравнении.
+CANDIDATE_THRESHOLD_RULES = (
+    "min_acer",        # историческое: левый край оптимального плато
+    "min_acer_mid",    # середина оптимального плато
+    "eer",             # точка равных ошибок
+    "class_midpoint",  # середина между средними скорами классов
+    "fixed_zero",      # фиксированный нуль (скоры центрированы)
+)
+
+
+def experiment_threshold_rules(
+    config: Config,
+    n_seeds: int = 8,
+    n_subjects: int = 8,
+) -> pd.DataFrame:
+    """Сравнить правила выбора порога на независимых синтетических наборах.
+
+    Эксперимент отвечает на вопрос, поставленный в E4: предложенная модель
+    упорядочивает записи лучше базлайна, но проигрывает по ACER, то есть
+    преимущество теряется на этапе выбора порога.
+
+    Сравнение проводится на ``n_seeds`` независимых наборах, чтобы победитель
+    не оказался случайностью одного розыгрыша. ROC-AUC от порога не зависит и
+    служит контролем: он обязан быть одинаковым для всех правил.
+
+    Returns:
+        DataFrame: seed, rule, model, apcer, bpcer, acer, accuracy, roc_auc.
+    """
+    from src.baseline import MajorityBaseline, StaticBaseline2D
+    from src.evaluation import run_loso
+    from src.pls_model import PLSModel
+
+    logger = get_logger()
+    rows: list[dict[str, Any]] = []
+
+    for seed_index in range(n_seeds):
+        seed = config.seed + seed_index * 7919
+        dataset = build_synthetic_dataset(n_subjects=n_subjects, seed=seed)
+        for rule in CANDIDATE_THRESHOLD_RULES:
+            builders = {
+                "B1_static2d": (lambda r=rule: StaticBaseline2D(config, threshold_rule=r)),
+                "M1_pls": (lambda r=rule: PLSModel(config, threshold_rule=r)),
+            }
+            _, _, pooled, _ = run_loso(
+                dataset, config, model_builders=builders, save=False, bootstrap=False
+            )
+            for _, row in pooled.iterrows():
+                rows.append(
+                    {
+                        "seed": seed,
+                        "rule": rule,
+                        "model": row["model"],
+                        "apcer": row["apcer"],
+                        "bpcer": row["bpcer"],
+                        "acer": row["acer"],
+                        "accuracy": row["accuracy"],
+                        "roc_auc": row["roc_auc"],
+                    }
+                )
+        logger.info("E5: набор %d из %d обработан", seed_index + 1, n_seeds)
+
+    return pd.DataFrame(rows)

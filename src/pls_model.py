@@ -38,14 +38,19 @@ class PLSModel:
         threshold_rule_: как именно был выбран порог (для отчётности).
     """
 
-    def __init__(self, config: Config, g_features: Sequence[str] | None = None) -> None:
+    def __init__(
+        self,
+        config: Config,
+        g_features: Sequence[str] | None = None,
+        threshold_rule: str | None = None,
+    ) -> None:
         cfg = config.get("pls", {})
         self.epsilon = float(config.get("features", {}).get("epsilon", 1e-8))
         self.g_features = list(
             g_features if g_features is not None else config.get("features", {}).get("g_features", G_NAMES)
         )
         self.direction_cfg = str(cfg.get("direction", "auto"))
-        self.rule = str(cfg.get("threshold_rule", "min_acer"))
+        self.rule = str(threshold_rule or cfg.get("threshold_rule", "min_acer_mid"))
         self.lam_attack = float(cfg.get("lambda_attack", 1.0))
         self.lam_live = float(cfg.get("lambda_live", 1.0))
         self.min_train_subjects = int(cfg.get("min_train_subjects_for_inner_val", 3))

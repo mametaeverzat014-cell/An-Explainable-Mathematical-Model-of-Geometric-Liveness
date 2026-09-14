@@ -449,6 +449,46 @@ def plot_synthetic_roc(config: Config, predictions: pd.DataFrame) -> Path | None
     return _save(fig, _syn_dir(config) / "synthetic_roc.png", dpi)
 
 
+def plot_synthetic_threshold_rules(config: Config, df: pd.DataFrame) -> Path | None:
+    """E5: сравнение правил выбора порога при разном числе участников."""
+    dpi, _ = _style(config)
+    out = _syn_dir(config) / "synthetic_threshold_rules.png"
+    pls = df[df["model"] == "M1_pls"]
+    if pls.empty:
+        return None
+
+    order = ["min_acer", "min_acer_mid", "class_midpoint", "eer", "fixed_zero"]
+    labels = {
+        "min_acer": "min_acer\n(историческое)",
+        "min_acer_mid": "min_acer_mid\n(середина плато)",
+        "class_midpoint": "class_midpoint\n(между средними)",
+        "eer": "eer\n(равные ошибки)",
+        "fixed_zero": "fixed_zero\n(нуль)",
+    }
+    counts = sorted(pls["n_subjects"].unique())
+    colors = {counts[0]: SYN_ORANGE, counts[-1]: SYN_BLUE}
+
+    x = np.arange(len(order))
+    width = 0.8 / max(1, len(counts))
+    fig, ax = plt.subplots(figsize=(8.6, 4.9))
+    for i, n_sub in enumerate(counts):
+        subset = pls[pls["n_subjects"] == n_sub]
+        means = [subset[subset["rule"] == r]["acer"].mean() for r in order]
+        errors = [subset[subset["rule"] == r]["acer"].std() for r in order]
+        bars = ax.bar(x + i * width, means, width, yerr=errors, capsize=3,
+                      color=colors.get(n_sub, SYN_GRAY),
+                      label=f"{n_sub} участников")
+        ax.bar_label(bars, fmt="%.3f", fontsize=8, padding=2)
+    _syn_axes(ax)
+    ax.set_xticks(x + width * (len(counts) - 1) / 2, [labels[r] for r in order], fontsize=8.5)
+    ax.set_ylabel("ACER (меньше — лучше)")
+    ax.set_title("E5. Чем меньше участников, тем сильнее правило выбора порога\n"
+                 "влияет на результат — при 8 участниках разница почти исчезает\n" + SYN_NOTE,
+                 fontsize=11, color=SYN_INK)
+    ax.legend(fontsize=9, frameon=False)
+    return _save(fig, out, dpi)
+
+
 def generate_synthetic_plots(config: Config, results: dict[str, pd.DataFrame]) -> dict[str, Any]:
     """Построить все графики синтетического исследования."""
     made: dict[str, Any] = {}
@@ -457,4 +497,6 @@ def generate_synthetic_plots(config: Config, results: dict[str, pd.DataFrame]) -
     made["motion"] = plot_synthetic_motion_types(config, results["motion"])
     made["noise"] = plot_synthetic_noise(config, results["noise"])
     made["roc"] = plot_synthetic_roc(config, results["predictions"])
+    if "rules" in results:
+        made["rules"] = plot_synthetic_threshold_rules(config, results["rules"])
     return made

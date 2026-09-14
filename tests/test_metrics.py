@@ -11,6 +11,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.evaluation import (  # noqa: E402
+    THRESHOLD_RULES,
     accuracy,
     acer,
     apcer,
@@ -106,3 +107,73 @@ def test_compute_all_metrics_reports_auc() -> None:
     metrics = compute_all_metrics(y_true, y_pred, scores)
     assert metrics["roc_auc"] == pytest.approx(1.0)
     assert metrics["n"] == 4
+
+
+# --------------------------------------------------------------------------
+# Правила выбора порога
+# --------------------------------------------------------------------------
+def test_min_acer_mid_moves_threshold_away_from_training_points() -> None:
+    """Порог отодвигается от обучающих наблюдений, а не липнет к левому краю.
+
+    Шесть записей: между 0.3 и 0.7 любой порог разделяет классы идеально,
+    и в этот промежуток попадают несколько порогов-кандидатов. Историческое
+    правило берёт самый левый из них, исправленное — середину.
+    """
+    scores = np.array([0.0, 0.1, 0.3, 0.7, 0.9, 1.0])
+    y_true = np.array([0, 0, 0, 1, 1, 1])
+
+    tau_left, _ = select_threshold(scores, y_true, rule="min_acer")
+    tau_mid, _ = select_threshold(scores, y_true, rule="min_acer_mid")
+
+    assert acer(y_true, (scores >= tau_left).astype(int)) == pytest.approx(0.0)
+    assert acer(y_true, (scores >= tau_mid).astype(int)) == pytest.approx(0.0)
+    assert 0.3 < tau_mid < 0.7
+
+
+def test_min_acer_mid_never_lands_between_disconnected_optima() -> None:
+    """Множество оптимальных порогов может быть несвязным.
+
+    При равных размерах классов проход порога мимо живой записи и мимо атаки
+    меняет ACER на одинаковую величину в разные стороны, поэтому одно и то же
+    минимальное значение достигается на нескольких разделённых отрезках.
+    Середина между крайними оптимумами попала бы в промежуток между ними, где
+    ошибка ВЫШЕ. Правило обязано выбирать порог, который действительно
+    оптимален.
+    """
+    scores = np.array([0.1, 0.2, 0.3, 0.4])
+    y_true = np.array([0, 1, 0, 1])
+
+    tau, best = select_threshold(scores, y_true, rule="min_acer_mid")
+    achieved = acer(y_true, (scores >= tau).astype(int))
+    assert achieved == pytest.approx(best)
+    assert achieved < 0.5
+
+
+def test_eer_balances_the_two_error_types() -> None:
+    """Точка равных ошибок уравнивает APCER и BPCER."""
+    scores = np.array([0.1, 0.3, 0.45, 0.55, 0.7, 0.9])
+    y_true = np.array([0, 0, 1, 0, 1, 1])
+    tau, _ = select_threshold(scores, y_true, rule="eer")
+    y_pred = (scores >= tau).astype(int)
+    assert abs(apcer(y_true, y_pred) - bpcer(y_true, y_pred)) <= 1 / 3 + 1e-9
+
+
+def test_class_midpoint_lies_between_class_means() -> None:
+    """Порог по средним классов лежит строго между ними."""
+    scores = np.array([-2.0, -1.0, 1.0, 3.0])
+    y_true = np.array([0, 0, 1, 1])
+    tau, _ = select_threshold(scores, y_true, rule="class_midpoint")
+    assert scores[y_true == 0].mean() < tau < scores[y_true == 1].mean()
+
+
+def test_fixed_zero_ignores_the_data() -> None:
+    """Фиксированное правило не зависит от выборки вовсе."""
+    for scores in (np.array([-5.0, 5.0]), np.array([100.0, 200.0])):
+        tau, _ = select_threshold(scores, np.array([0, 1]), rule="fixed_zero")
+        assert tau == 0.0
+
+
+def test_unknown_threshold_rule_is_rejected() -> None:
+    """Опечатка в названии правила не должна молча менять поведение."""
+    with pytest.raises(ValueError, match="Неизвестное правило"):
+        select_threshold(np.array([0.0, 1.0]), np.array([0, 1]), rule="опечатка")
