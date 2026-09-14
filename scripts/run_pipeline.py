@@ -32,7 +32,7 @@ import pandas as pd
 from src.build_features import build_video_features
 from src.evaluation import run_loso
 from src.extract_landmarks import LandmarkBackendError, run_extraction
-from src.plotting import generate_all_plots, plot_ablation
+from src.plotting import generate_all_plots, plot_ablation, plot_landmark_example
 from src.quality_control import run_quality_control
 from src.utils import (
     MetadataError,
@@ -153,12 +153,35 @@ def main() -> int:
         logger.error("Таблица признаков пуста — оценка невозможна.")
         return 4
 
+    # График с семантическими точками строится СРАЗУ: он не зависит от LOSO-CV и
+    # нужен для пробной съёмки одним участником, чтобы проверить разметку точек.
+    first_video = metadata.iloc[0]
+    example = (
+        config.path("landmarks_dir") / f"{first_video['video_id']}.csv",
+        Path(first_video["abs_path"]),
+    )
+    plot_landmark_example(config, *example)
+
     n_subjects = features["subject_id"].nunique()
     if n_subjects < 2:
         logger.error(
             "Для LOSO-CV нужно минимум 2 субъекта, найдено: %d. "
             "Добавьте видео других участников в data/raw/.",
             n_subjects,
+        )
+        print(
+            "\n" + "=" * 72 + "\n"
+            "ПРОБНЫЙ ЗАПУСК ВЫПОЛНЕН ЧАСТИЧНО: метрики требуют >= 2 участников.\n"
+            + "=" * 72 + "\n"
+            "Но проверить качество разметки уже можно:\n"
+            f"  1) {config.path('results_dir') / 'landmark_quality_report.csv'}\n"
+            "     -> колонка passed должна быть True, иначе смотрите колонку reason\n"
+            f"  2) {config.path('figures_dir') / 'landmark_example.png'}\n"
+            "     -> точки должны лежать на носу, глазах, щеках и подбородке\n"
+            f"  3) {config.path('results_dir') / 'video_features.csv'}\n"
+            "     -> значения G1, G2, G3 для каждого видео\n\n"
+            "Когда разметка выглядит правильно, добавьте видео других участников.\n"
+            + "=" * 72
         )
         return 5
     if features["y"].nunique() < 2:
@@ -170,11 +193,6 @@ def main() -> int:
     predictions, fold_metrics, pooled_metrics, thresholds = run_loso(features, config)
 
     # --- 7. графики --------------------------------------------------------
-    first_video = metadata.iloc[0]
-    example = (
-        config.path("landmarks_dir") / f"{first_video['video_id']}.csv",
-        Path(first_video["abs_path"]),
-    )
     generate_all_plots(config, predictions, pooled_metrics, landmark_example=example)
 
     # --- 8. опциональные эксперименты --------------------------------------
