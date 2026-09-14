@@ -167,7 +167,8 @@ data/
 ```
 
 Рекомендуется: длительность 2–3 с, формат MP4 (H.264), лицо занимает заметную часть
-кадра. Подробные требования к съёмке — в [`protocol.md`](protocol.md).
+кадра. Подробные требования к съёмке — в [`protocol.md`](protocol.md), а готовая
+памятка для участников — в [`volunteer_instructions.md`](volunteer_instructions.md).
 
 ## 5. Как заполнить `metadata.csv`
 
@@ -456,6 +457,7 @@ Python. Команда `pip install mediapipe==0.10.21` на Python 3.13+ дей
 ```
 ├── README.md                 # этот файл
 ├── protocol.md               # протокол исследования и съёмки
+├── volunteer_instructions.md # памятка участнику съёмки и чек-лист оператора
 ├── data_card.md              # карточка набора данных
 ├── research_log.md           # журнал исследования
 ├── requirements.txt
