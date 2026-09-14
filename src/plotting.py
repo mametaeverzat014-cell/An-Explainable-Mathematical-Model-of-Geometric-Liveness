@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 from src.constants import LANDMARK_NAMES
-from src.evaluation import confusion_counts, roc_curve_points
+from src.evaluation import confusion_counts, roc_auc, roc_curve_points
 from src.utils import Config, ensure_dir, get_logger
 
 MODEL_LABELS = {
@@ -249,4 +249,212 @@ def generate_all_plots(
         config, predictions, "B1_static2d", "confusion_matrix_baseline.png"
     )
     made["metric_comparison"] = plot_metric_comparison(config, pooled_metrics)
+    return made
+
+
+# ==========================================================================
+# Графики синтетического исследования (src/synthetic_study.py)
+# ==========================================================================
+#: Категориальная палитра, проверенная на различимость при дальтонизме
+#: (adjacent CVD dE = 10.8 protan, контраст к фону >= 3:1).
+SYN_BLUE = "#4A6FD4"
+SYN_ORANGE = "#C2631A"
+SYN_TEAL = "#1A8F72"
+SYN_GRAY = "#6F7787"
+SYN_INK = "#1B1F27"
+SYN_MUTED = "#5C6472"
+SYN_GRID = "#D8DCE6"
+
+#: Приписка, которая обязана стоять на каждом графике симуляции.
+SYN_NOTE = "СИМУЛЯЦИЯ: идеализированная 3D-сцена, не эксперимент на людях"
+
+
+def _syn_axes(ax: "plt.Axes") -> None:
+    """Единое оформление осей: рецессивная сетка, спокойные подписи."""
+    ax.grid(True, which="major", color=SYN_GRID, linewidth=0.8, alpha=0.9)
+    ax.grid(True, which="minor", color=SYN_GRID, linewidth=0.5, alpha=0.5)
+    ax.set_axisbelow(True)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    for side in ("left", "bottom"):
+        ax.spines[side].set_color(SYN_GRID)
+    ax.tick_params(colors=SYN_MUTED, labelsize=9)
+    ax.xaxis.label.set_color(SYN_INK)
+    ax.yaxis.label.set_color(SYN_INK)
+
+
+def _syn_dir(config: Config) -> Path:
+    return ensure_dir(config.path("figures_dir") / "synthetic")
+
+
+def plot_synthetic_depth_sweep(config: Config, df: pd.DataFrame) -> Path:
+    """E1: как временные признаки растут с рельефом лица.
+
+    Ось Y логарифмическая: значения признаков различаются на три порядка,
+    поэтому вторая ось была бы ошибкой — используется один масштаб.
+    """
+    dpi, _ = _style(config)
+    fig, ax = plt.subplots(figsize=(7.2, 4.8))
+    series = [("G1", SYN_BLUE, "G1 — псевдоглубина носа"),
+              ("G2", SYN_ORANGE, "G2 — лево-правая асимметрия"),
+              ("G3", SYN_TEAL, "G3 — вертикальная пропорция")]
+    for col, color, label in series:
+        ax.plot(df["nose_depth"], df[col], color=color, linewidth=2,
+                marker="o", markersize=5, label=label)
+        ax.annotate(col, (df["nose_depth"].iloc[-1], df[col].iloc[-1]),
+                    textcoords="offset points", xytext=(8, 0), color=color,
+                    fontsize=10, fontweight="bold", va="center")
+    ax.axvline(0.0, color=SYN_MUTED, linewidth=1, linestyle=":")
+    ax.annotate("плоская атака\n(нос в плоскости щёк)", (0.0, df["G2"].max()),
+                textcoords="offset points", xytext=(8, -6), color=SYN_MUTED, fontsize=8.5)
+    ax.set_yscale("log")
+    ax.set_xlabel("Рельеф лица: вынос кончика носа вперёд (условные единицы)")
+    ax.set_ylabel("Временная дисперсия признака (лог. шкала)")
+    ax.set_title("E1. Чем выраженнее рельеф лица, тем больше все три признака\n" + SYN_NOTE,
+                 fontsize=11, color=SYN_INK)
+    ax.set_xlim(-0.012, df["nose_depth"].max() * 1.12)
+    ax.legend(fontsize=9, frameon=False, loc="lower right")
+    return _save(fig, _syn_dir(config) / "synthetic_depth_sweep.png", dpi)
+
+
+def plot_synthetic_distance_sweep(config: Config, df: pd.DataFrame) -> Path:
+    """E2: почему протокол требует снимать лицо крупным планом."""
+    dpi, _ = _style(config)
+    fig, ax = plt.subplots(figsize=(7.2, 4.8))
+    ax.plot(df["camera_distance"], df["G1_separation_ideal"], color=SYN_BLUE,
+            linewidth=2, marker="o", markersize=5,
+            label="идеальная сцена, без шума")
+    ax.plot(df["camera_distance"], df["G1_separation_noisy"], color=SYN_ORANGE,
+            linewidth=2, marker="s", markersize=5,
+            label="с шумом псевдоглубины (sigma = 0.002)")
+    ax.axhline(1.0, color=SYN_MUTED, linewidth=1.2, linestyle="--")
+    ax.annotate("разделения нет", (df["camera_distance"].iloc[-1], 1.0),
+                textcoords="offset points", xytext=(-4, 7), color=SYN_MUTED,
+                fontsize=8.5, ha="right")
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel("Расстояние от камеры до лица (условные единицы)")
+    ax.set_ylabel("Во сколько раз G1 живого больше, чем у плоского")
+    ax.set_title("E2. Без шума разделение растёт с расстоянием — но с шумом исчезает\n" + SYN_NOTE,
+                 fontsize=11, color=SYN_INK)
+    ax.legend(fontsize=9, frameon=False, loc="upper left")
+    return _save(fig, _syn_dir(config) / "synthetic_distance_sweep.png", dpi)
+
+
+def plot_synthetic_motion_types(config: Config, df: pd.DataFrame, amplitude: float = 25.0) -> Path:
+    """E3: разные признаки требуют разных движений головы.
+
+    Нижняя граница оси зафиксирована на 1e-6: значения ниже этого порога
+    практически равны нулю, и растягивать шкалу на восемнадцать порядков
+    ради них — значит сплющить единственную содержательную часть графика.
+    Такие столбцы обрезаются до основания и подписываются «= 0».
+    """
+    dpi, _ = _style(config)
+    subset = df[df["amplitude_deg"] == amplitude]
+    regimes = ["только поворот", "только наклон", "поворот + наклон"]
+    subset = subset.set_index("regime").loc[regimes]
+
+    floor = 1e-6
+    fig, axes = plt.subplots(1, 2, figsize=(9.6, 4.8), sharey=True)
+    panels = [("G1_live", "G1_planar", "G1 — псевдоглубина носа"),
+              ("G2_live", "G2_planar", "G2 — лево-правая асимметрия")]
+    x = np.arange(len(regimes))
+    width = 0.38
+
+    for ax, (live_col, flat_col, title) in zip(axes, panels):
+        pairs = [
+            (x - width / 2 - 0.01, subset[live_col].to_numpy(dtype=float), SYN_BLUE, "живое лицо"),
+            (x + width / 2 + 0.01, subset[flat_col].to_numpy(dtype=float), SYN_ORANGE, "плоская атака"),
+        ]
+        for positions, values, color, label in pairs:
+            drawn = np.maximum(values, floor)
+            ax.bar(positions, drawn, width, color=color, label=label)
+            # значения ниже порога честно помечаем нулём, а не рисуем «почти ноль»
+            for pos, raw in zip(positions, values):
+                if raw < floor:
+                    ax.annotate("= 0", (pos, floor), textcoords="offset points",
+                                xytext=(0, 4), ha="center", fontsize=8.5, color=SYN_MUTED)
+        ax.set_xticks(x, regimes, fontsize=9)
+        ax.set_title(title, fontsize=10, color=SYN_INK)
+        _syn_axes(ax)
+        plt.setp(ax.get_xticklabels(), rotation=12, ha="right")
+
+    axes[0].set_yscale("log")
+    axes[0].set_ylim(floor, 0.45)
+    axes[0].set_ylabel("Временная дисперсия (лог. шкала)")
+    axes[0].legend(fontsize=9, frameon=False, loc="upper left")
+    fig.suptitle(
+        f"E3. Поворот включает G2, наклон включает G1 (амплитуда {amplitude:.0f}°)\n" + SYN_NOTE,
+        fontsize=11, color=SYN_INK,
+    )
+    return _save(fig, _syn_dir(config) / "synthetic_motion_types.png", dpi)
+
+
+def plot_synthetic_noise(config: Config, df: pd.DataFrame) -> Path:
+    """E4: устойчивость классификации к шуму псевдоглубины."""
+    dpi, _ = _style(config)
+    fig, ax = plt.subplots(figsize=(7.2, 4.8))
+    styles = {
+        "M1_pls": (SYN_BLUE, "o", "M1: PLS (временная геометрия)"),
+        "B1_static2d": (SYN_ORANGE, "s", "B1: статический 2D-базлайн"),
+        "B0_majority": (SYN_GRAY, "^", "B0: мажоритарный (ориентир)"),
+    }
+    for model, (color, marker, label) in styles.items():
+        grp = df[df["model"] == model]
+        if grp.empty:
+            continue
+        agg = grp.groupby("sigma")["acer"].mean().reset_index()
+        ax.plot(agg["sigma"], agg["acer"], color=color, linewidth=2,
+                marker=marker, markersize=5, label=label)
+    _syn_axes(ax)
+    ax.set_xscale("symlog", linthresh=1e-3)
+    ax.set_xlabel("sigma синтетического шума псевдоглубины z")
+    ax.set_ylabel("ACER (меньше — лучше)")
+    ax.set_ylim(0, 0.62)
+    ax.set_title("E4. Шум в псевдоглубине почти не портит результат:\n"
+                 "основной вклад даёт G2, который не использует z\n" + SYN_NOTE,
+                 fontsize=11, color=SYN_INK)
+    ax.legend(fontsize=9, frameon=False, loc="center right")
+    return _save(fig, _syn_dir(config) / "synthetic_noise_robustness.png", dpi)
+
+
+def plot_synthetic_roc(config: Config, predictions: pd.DataFrame) -> Path | None:
+    """E4: ROC-кривые на синтетическом наборе."""
+    dpi, _ = _style(config)
+    fig, ax = plt.subplots(figsize=(6.2, 5.4))
+    styles = {"M1_pls": (SYN_BLUE, "M1: PLS"), "B1_static2d": (SYN_ORANGE, "B1: статический 2D")}
+    plotted = False
+    for model, (color, label) in styles.items():
+        grp = predictions[predictions["model"] == model]
+        if grp.empty:
+            continue
+        fpr, tpr = roc_curve_points(grp["y_true"].to_numpy(), grp["score"].to_numpy())
+        if fpr.size == 0:
+            continue
+        auc = roc_auc(grp["y_true"].to_numpy(), grp["score"].to_numpy())
+        ax.plot(fpr, tpr, color=color, linewidth=2, marker="o", markersize=4,
+                label=f"{label} (AUC = {auc:.3f})")
+        plotted = True
+    if not plotted:
+        plt.close(fig)
+        return None
+    ax.plot([0, 1], [0, 1], color=SYN_MUTED, linewidth=1, linestyle="--",
+            label="случайное угадывание")
+    _syn_axes(ax)
+    ax.set_xlabel("FPR — доля атак, принятых за живое лицо")
+    ax.set_ylabel("TPR — доля верно принятых живых")
+    ax.set_title("E4. ROC на синтетическом наборе (8 участников, LOSO)\n" + SYN_NOTE,
+                 fontsize=11, color=SYN_INK)
+    ax.legend(fontsize=9, frameon=False, loc="lower right")
+    return _save(fig, _syn_dir(config) / "synthetic_roc.png", dpi)
+
+
+def generate_synthetic_plots(config: Config, results: dict[str, pd.DataFrame]) -> dict[str, Any]:
+    """Построить все графики синтетического исследования."""
+    made: dict[str, Any] = {}
+    made["depth"] = plot_synthetic_depth_sweep(config, results["depth"])
+    made["distance"] = plot_synthetic_distance_sweep(config, results["distance"])
+    made["motion"] = plot_synthetic_motion_types(config, results["motion"])
+    made["noise"] = plot_synthetic_noise(config, results["noise"])
+    made["roc"] = plot_synthetic_roc(config, results["predictions"])
     return made

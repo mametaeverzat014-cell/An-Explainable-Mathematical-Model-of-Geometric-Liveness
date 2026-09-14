@@ -13,6 +13,7 @@
 | Протокол исследования, критерии включения/исключения | ✅ зафиксированы |
 | Карточка данных, этические требования | ✅ готово |
 | Синтетическая проверка модели (журнал, записи 1–4) | ✅ выполнена |
+| Численное исследование модели на 3D-сцене (журнал, запись 5) | ✅ выполнено |
 | Сбор видео участников | ⏳ в работе |
 | Метрики на реальных данных (журнал, записи 5–10) | ⏳ после сбора данных |
 
@@ -223,8 +224,9 @@ python scripts/run_pipeline.py --config configs/prototype.yaml --verbose        
 Отдельные этапы:
 
 ```bash
-python scripts/run_evaluation.py      --config configs/prototype.yaml   # только оценка по готовым признакам
+python scripts/run_evaluation.py       --config configs/prototype.yaml  # только оценка по готовым признакам
 python scripts/run_noise_experiment.py --config configs/prototype.yaml  # только эксперимент с шумом
+python scripts/run_synthetic_study.py  --config configs/prototype.yaml  # исследование модели БЕЗ видео
 python -m pytest tests/ -q                                              # тесты
 ```
 
@@ -249,6 +251,7 @@ python -m pytest tests/ -q                                              # тес
 | `ablation_metrics.csv` | *(опционально)* PLS без `G1` / без `G2` / без `G3` |
 | `noise_robustness_metrics.csv` | *(опционально)* метрики при разных уровнях синтетического шума |
 | `noise_delta_acer.csv` | *(опционально)* `Delta_ACER(sigma) = ACER_базлайн − ACER_PLS` |
+| `synthetic/*.csv` | результаты численного исследования модели на 3D-сцене (видео не нужны) |
 
 ### `figures/`
 
@@ -262,6 +265,7 @@ python -m pytest tests/ -q                                              # тес
 | `metric_comparison.png` | сравнение APCER / BPCER / ACER / Accuracy |
 | `noise_robustness.png` | *(опционально)* ACER в зависимости от sigma |
 | `ablation_comparison.png` | *(опционально)* вклад компонент `G1`, `G2`, `G3` |
+| `synthetic/*.png` | графики синтетического исследования (E1–E4) |
 
 Все метрики в отчётах вычисляются **из сохранённого `predictions.csv`**, поэтому любое
 число в работе воспроизводимо и проверяемо.
@@ -464,7 +468,7 @@ Python. Команда `pip install mediapipe==0.10.21` на Python 3.13+ дей
 ├── configs/prototype.yaml    # все параметры эксперимента
 ├── data/raw/                 # ваши видео (не коммитятся)
 ├── data/metadata.csv         # описание видео
-├── src/                      # модули пайплайна
+├── src/                      # модули пайплайна (включая синтетическую 3D-сцену)
 ├── scripts/                  # точки входа
 ├── results/                  # таблицы результатов
 ├── figures/                  # графики
