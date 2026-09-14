@@ -243,6 +243,7 @@ python scripts/run_pipeline.py --config configs/prototype.yaml --verbose        
 Отдельные этапы:
 
 ```bash
+python scripts/extract_attack_photo.py --config configs/prototype.yaml  # кадр из live-видео для атак
 python scripts/run_evaluation.py       --config configs/prototype.yaml  # только оценка по готовым признакам
 python scripts/run_noise_experiment.py --config configs/prototype.yaml  # только эксперимент с шумом
 python scripts/run_synthetic_study.py  --config configs/prototype.yaml  # исследование модели БЕЗ видео
