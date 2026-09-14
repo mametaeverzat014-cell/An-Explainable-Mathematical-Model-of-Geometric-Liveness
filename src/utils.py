@@ -214,6 +214,67 @@ def load_metadata(metadata_csv: Path, raw_dir: Path) -> pd.DataFrame:
     return df
 
 
+#: Соответствие "имя подпапки -> (label, attack_type)".
+FOLDER_TO_LABEL: dict[str, tuple[str, str]] = {
+    "live": ("live", "none"),
+    "print": ("attack", "print"),
+    "screen": ("attack", "screen"),
+    "replay": ("attack", "replay"),
+    "curved_print": ("attack", "curved_print"),
+}
+
+
+def scan_raw_videos(raw_dir: Path) -> tuple[list[dict[str, str]], list[str]]:
+    """Собрать записи metadata.csv из структуры каталогов ``data/raw/``.
+
+    Ожидаемая структура: ``data/raw/<subject_id>/<тип>/<файл>``, где тип —
+    одно из имён :data:`FOLDER_TO_LABEL`.
+
+    Returns:
+        Пара (найденные записи, предупреждения о файлах не по структуре).
+    """
+    records: list[dict[str, str]] = []
+    warnings: list[str] = []
+    if not raw_dir.exists():
+        return records, [f"каталог не найден: {raw_dir}"]
+
+    for subject_dir in sorted(p for p in raw_dir.iterdir() if p.is_dir()):
+        subject_id = subject_dir.name
+        for class_dir in sorted(p for p in subject_dir.iterdir() if p.is_dir()):
+            folder = class_dir.name.lower()
+            if folder not in FOLDER_TO_LABEL:
+                warnings.append(
+                    f"{subject_id}/{class_dir.name}: неизвестный тип записи, пропущено "
+                    f"(ожидается одно из: {', '.join(FOLDER_TO_LABEL)})"
+                )
+                continue
+            label, attack_type = FOLDER_TO_LABEL[folder]
+            videos = sorted(
+                p for p in class_dir.iterdir()
+                if p.is_file() and p.suffix.lower() in VIDEO_EXTENSIONS
+            )
+            skipped = [
+                p.name for p in class_dir.iterdir()
+                if p.is_file() and p.suffix.lower() not in VIDEO_EXTENSIONS
+                and not p.name.startswith(".")
+            ]
+            for name in skipped:
+                warnings.append(f"{subject_id}/{folder}/{name}: не видеофайл, пропущено")
+            for index, video in enumerate(videos, start=1):
+                records.append(
+                    {
+                        "video_id": f"{subject_id}_{folder}_{index:02d}",
+                        "relative_path": f"{subject_id}/{class_dir.name}/{video.name}",
+                        "subject_id": subject_id,
+                        "label": label,
+                        "attack_type": attack_type,
+                    }
+                )
+    if not records and not warnings:
+        warnings.append(f"в {raw_dir} не найдено ни одного видео")
+    return records, warnings
+
+
 def describe_dataset(df: pd.DataFrame) -> str:
     """Краткая текстовая сводка по набору данных."""
     if df.empty:
