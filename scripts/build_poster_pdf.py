@@ -41,6 +41,18 @@ def _fmt(value: float, digits: int = 3) -> str:
     return f"{value:.{digits}f}"
 
 
+def count_tests(root: Path) -> int:
+    """Число автоматических тестов — считается по исходникам, а не вписывается.
+
+    Вписанное руками число неизбежно расходится с действительностью после
+    очередного коммита, а на печатном постере такую ошибку уже не исправить.
+    """
+    return sum(
+        len(re.findall(r"^def test_", path.read_text(encoding="utf-8"), re.M))
+        for path in sorted((root / "tests").glob("test_*.py"))
+    )
+
+
 def count_pdf_pages(path: Path) -> int:
     """Число страниц в PDF.
 
@@ -363,10 +375,10 @@ footer .repo {{ font-family: "SF Mono", Menlo, Consolas, monospace; word-break: 
 </div>
 
 <footer>
-  <div>Код, данные протокола и полный текст работы (35 с.) —
+  <div>Код, данные протокола и полный текст работы ({d["n_report_pages"]} с.) —
        воспроизводится одной командой:<br>
        <span class="repo">{REPO}</span></div>
-  <div style="text-align:right; white-space:nowrap">43 автоматических теста<br>Python · CPU · без облачных сервисов</div>
+  <div style="text-align:right; white-space:nowrap">{d["n_tests"]} автоматических тестов<br>Python · CPU · без облачных сервисов</div>
 </footer>
 
 </div></body></html>
@@ -382,6 +394,9 @@ def main() -> int:
     root = project_root()
 
     numbers = load_numbers(root)
+    numbers["n_tests"] = count_tests(root)
+    report = root / "report.pdf"
+    numbers["n_report_pages"] = count_pdf_pages(report) if report.exists() else 0
     html_path = root / (Path(args.output).stem + ".html")
     html_path.write_text(build_html(numbers), encoding="utf-8")
     logger.info("HTML постера собран: %s", html_path)
