@@ -1,0 +1,4 @@
+model,n,apcer,bpcer,acer,accuracy,n_live,n_attack,live_as_live,live_as_attack,attack_as_live,attack_as_attack,roc_auc,acer_ci_low,acer_ci_high,accuracy_ci_low,accuracy_ci_high
+B0_majority,12,0.0,1.0,0.5,0.5,6.0,6.0,0.0,6.0,0.0,6.0,0.5,0.5,0.5,0.5,0.5
+B1_static2d,12,0.3333333333333333,0.16666666666666666,0.25,0.75,6.0,6.0,5.0,1.0,2.0,4.0,0.8055555555555556,0.08333333333333333,0.4166666666666667,0.5833333333333334,0.9166666666666666
+M1_pls,12,0.0,0.0,0.0,1.0,6.0,6.0,6.0,0.0,0.0,6.0,1.0,0.0,0.0,1.0,1.0

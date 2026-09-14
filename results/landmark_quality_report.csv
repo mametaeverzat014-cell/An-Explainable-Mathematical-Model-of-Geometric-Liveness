@@ -1,0 +1,13 @@
+video_id,subject_id,label,attack_type,n_frames,n_valid_frames,valid_ratio,median_iod,passed,reason
+s001_live_01,s001,live,none,120,120,1.0,0.2785536179178344,True,ok
+s001_screen_01,s001,attack,screen,120,120,1.0,0.19854967167610457,True,ok
+s002_live_01,s002,live,none,120,120,1.0,0.20519156072529304,True,ok
+s002_screen_01,s002,attack,screen,120,120,1.0,0.1710837631314443,True,ok
+s003_live_01,s003,live,none,120,120,1.0,0.35579918117695475,True,ok
+s003_screen_01,s003,attack,screen,120,120,1.0,0.36437059622132795,True,ok
+s004_live_01,s004,live,none,120,120,1.0,0.298332687224064,True,ok
+s004_screen_01,s004,attack,screen,120,120,1.0,0.31955268616416216,True,ok
+s005_live_01,s005,live,none,120,120,1.0,0.29760267944641217,True,ok
+s005_screen_01,s005,attack,screen,120,120,1.0,0.2953042245715787,True,ok
+s006_live_01,s006,live,none,120,120,1.0,0.23242358513563038,True,ok
+s006_screen_01,s006,attack,screen,120,120,1.0,0.21996987948272037,True,ok

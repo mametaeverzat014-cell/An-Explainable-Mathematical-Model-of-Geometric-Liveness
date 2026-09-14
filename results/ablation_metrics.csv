@@ -1,0 +1,5 @@
+model,n,apcer,bpcer,acer,accuracy,n_live,n_attack,live_as_live,live_as_attack,attack_as_live,attack_as_attack,roc_auc,variant,g_features
+PLS_full_G1G2G3,12,0.0,0.0,0.0,1.0,6.0,6.0,6.0,0.0,0.0,6.0,1.0,PLS_full_G1G2G3,G1+G2+G3
+PLS_without_G1,12,0.0,0.0,0.0,1.0,6.0,6.0,6.0,0.0,0.0,6.0,1.0,PLS_without_G1,G2+G3
+PLS_without_G2,12,0.16666666666666666,0.0,0.08333333333333333,0.9166666666666666,6.0,6.0,6.0,0.0,1.0,5.0,1.0,PLS_without_G2,G1+G3
+PLS_without_G3,12,0.0,0.0,0.0,1.0,6.0,6.0,6.0,0.0,0.0,6.0,1.0,PLS_without_G3,G1+G2
