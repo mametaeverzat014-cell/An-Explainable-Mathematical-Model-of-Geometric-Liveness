@@ -23,6 +23,7 @@ figures/landmark_example.png
 # report.pdf НАМЕРЕННО коммитится: это главный документ работы, и жюри должно
 # открывать его прямо из репозитория, не собирая проект у себя.
 report.html
+poster.html
 fonts.css
 fonts/
 
