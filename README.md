@@ -51,18 +51,31 @@
 
 ## 3. Установка
 
-Требуется **Python 3.10+** и обычный компьютер (GPU не нужен, всё считается на CPU).
+Требуется **Python 3.10–3.12** и обычный компьютер (GPU не нужен, всё считается на CPU).
+
+> ⚠️ **Версия Python принципиальна.** У MediaPipe есть сборки только для
+> Python 3.9–3.12. На Python **3.13 и 3.14 установка не сработает**: pip напишет
+> `Could not find a version that satisfies the requirement mediapipe`.
+> Проверьте версию командой `python3 --version`. Если она новее 3.12, поставьте
+> Python 3.12 отдельно (macOS: `brew install python@3.12`) и создавайте
+> виртуальное окружение именно им — системный Python трогать не нужно.
 
 ### 3.1. Виртуальное окружение
 
 Linux / macOS:
 
 ```bash
-python3 -m venv .venv
+git clone -b claude/modest-mendel-5tcrb7 \
+  https://github.com/mametaeverzat014-cell/An-Explainable-Mathematical-Model-of-Geometric-Liveness.git
+cd An-Explainable-Mathematical-Model-of-Geometric-Liveness
+
+python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
+
+Все команды выполняются **из каталога проекта** (там, где лежит `requirements.txt`).
 
 Windows (PowerShell):
 
@@ -343,8 +356,22 @@ MediaPipe не нашёл лицо. Обычные причины: слишко�
 **`degenerate_iod`.**
 Лицо слишком мелкое в кадре — подойдите ближе к камере.
 
-**Ошибка установки MediaPipe.**
-Обновите `pip` (`python -m pip install --upgrade pip`); требуется Python 3.10+.
+**`Could not find a version that satisfies the requirement mediapipe`.**
+Почти всегда это несовместимая версия Python. MediaPipe собран для Python 3.9–3.12,
+на 3.13/3.14 колёс нет. Проверьте `python --version` внутри активированного окружения;
+если версия новее 3.12 — пересоздайте окружение на Python 3.12
+(macOS: `brew install python@3.12`, затем `/opt/homebrew/bin/python3.12 -m venv .venv`).
+
+**`Could not open requirements file` / `can't open file 'scripts/run_pipeline.py'`.**
+Команда запущена не из каталога проекта. Выполните `cd` в папку, где лежит
+`requirements.txt`, и проверьте `pwd`.
+
+**`zsh: command not found: #`.**
+В интерактивном zsh символ `#` не считается комментарием. Не копируйте в терминал
+строки-комментарии из инструкций — только сами команды.
+
+**Прочие ошибки установки MediaPipe.**
+Обновите `pip` (`python -m pip install --upgrade pip`).
 Если установилась версия `mediapipe>=1.0`, выполните
 `pip install "mediapipe>=0.10,<1.0"` либо укажите путь к локальному файлу модели
 в переменной `FACE_LANDMARKER_TASK`.

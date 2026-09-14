@@ -120,10 +120,24 @@ def create_backend(cfg: dict[str, Any]):
     try:
         import mediapipe as mp
     except ImportError as exc:  # pragma: no cover - зависит от окружения
+        import sys as _sys
+
+        version_hint = ""
+        if _sys.version_info >= (3, 13):
+            version_hint = (
+                f"\nВЕРОЯТНАЯ ПРИЧИНА: у вас Python "
+                f"{_sys.version_info.major}.{_sys.version_info.minor}, "
+                "а mediapipe собран только для Python 3.9-3.12.\n"
+                "Создайте окружение на Python 3.12, например:\n"
+                "    brew install python@3.12\n"
+                "    /opt/homebrew/bin/python3.12 -m venv .venv\n"
+                "    source .venv/bin/activate && pip install -r requirements.txt"
+            )
         raise LandmarkBackendError(
             "Пакет mediapipe не установлен.\n"
             "Установите зависимости: pip install -r requirements.txt\n"
             "(нужна ветка 'mediapipe>=0.10,<1.0' — в ней модель встроена)"
+            + version_hint
         ) from exc
 
     if hasattr(mp, "solutions") and hasattr(mp.solutions, "face_mesh"):

@@ -1,5 +1,9 @@
 # Минимальный набор зависимостей (только CPU, без облачных API).
-# Python >= 3.10
+#
+# ВАЖНО: требуется Python 3.10-3.12.
+# У mediapipe есть колёса (wheels) только для cp39-cp312. На Python 3.13/3.14
+# установка завершится ошибкой "Could not find a version that satisfies the
+# requirement mediapipe". Проверить версию: python --version
 numpy>=1.24
 pandas>=2.0
 scikit-learn>=1.3
