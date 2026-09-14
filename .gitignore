@@ -11,6 +11,12 @@ figures/**
 # Файл модели MediaPipe (скачивается локально, ~3.7 МБ)
 models/
 
+# Собираемые файлы научной работы (пересобираются одной командой)
+report.html
+report.pdf
+fonts.css
+fonts/
+
 # Python
 __pycache__/
 *.py[cod]
