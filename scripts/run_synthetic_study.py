@@ -7,7 +7,9 @@
     E1 — зависимость признаков G1, G2, G3 от рельефа лица;
     E2 — зависимость разделения классов от расстояния до камеры;
     E3 — какое движение головы включает какой признак;
-    E4 — классификация полным пайплайном LOSO и устойчивость к шуму.
+    E4 — классификация полным пайплайном LOSO и устойчивость к шуму;
+    E5 — сравнение правил выбора порога;
+    E6 — устоит ли модель против атаки воспроизведением (replay).
 
 Результаты: results/synthetic/*.csv и figures/synthetic/*.png
 
@@ -76,6 +78,17 @@ def main() -> int:
     cols = [c for c in ["model", "n", "apcer", "bpcer", "acer", "accuracy", "roc_auc"]
             if c in results["pooled"].columns]
     print(results["pooled"][cols].to_string(index=False))
+
+    replay = results["replay_predictions"]
+    share = replay.groupby("attack_type")["predicted_live"].mean()
+    names = {"none": "живое лицо", "screen": "фото на экране", "replay": "ВИДЕО на экране"}
+    print("\nE6. Атака воспроизведением (обучение только на live + screen):")
+    for key in ("none", "screen", "replay"):
+        if key in share.index:
+            print(f"    {names[key]:18s} принято за живое: {share[key] * 100:5.1f}%")
+    if float(share.get("replay", 0.0)) > 0.5:
+        print("    ВЫВОД: модель не распознаёт атаку воспроизведением.")
+        print("    Это предсказание механизма, а не сбой кода (см. research_log.md).")
 
     print("\n" + "=" * 72)
     print("Таблицы: results/synthetic/    Графики: figures/synthetic/")

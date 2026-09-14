@@ -26,6 +26,7 @@ import pandas as pd
 
 from src.build_features import (
     BASELINE_FEATURE_NAMES,
+    G_NAMES,
     compute_baseline_features,
     compute_g_features,
     compute_ratios,
@@ -36,6 +37,7 @@ from src.synthetic_face import (
     LIVE_NOSE_DEPTH,
     PLANAR_NOSE_DEPTH,
     head_motion,
+    render_replay_sequence,
     render_sequence,
 )
 from src.utils import Config, ensure_dir, get_logger
@@ -340,8 +342,15 @@ def run_synthetic_study(config: Config, n_subjects: int = 8) -> dict[str, pd.Dat
     rules = pd.concat(rule_frames, ignore_index=True)
     rules.to_csv(out_dir / "synthetic_threshold_rules.csv", index=False)
 
+    logger.info("E6: атака воспроизведением (replay)")
+    replay_classes, replay_preds = experiment_replay_attack(config, n_subjects=n_subjects)
+    replay_classes.to_csv(out_dir / "synthetic_replay_features.csv", index=False)
+    replay_preds.to_csv(out_dir / "synthetic_replay_predictions.csv", index=False)
+
     logger.info("Таблицы сохранены в %s", out_dir)
     return {
+        "replay_classes": replay_classes,
+        "replay_predictions": replay_preds,
         "rules": rules,
         "depth": depth,
         "distance": distance,
@@ -417,3 +426,137 @@ def experiment_threshold_rules(
         logger.info("E5: набор %d из %d обработан", seed_index + 1, n_seeds)
 
     return pd.DataFrame(rows)
+
+
+# --------------------------------------------------------------------------
+# E6. Атака воспроизведением (replay)
+# --------------------------------------------------------------------------
+def build_replay_dataset(
+    n_subjects: int = 8, n_videos_per_class: int = 2, seed: int = 42
+) -> pd.DataFrame:
+    """Набор из трёх классов: живое лицо, фото на экране и ВИДЕО на экране.
+
+    Класс ``replay`` устроен принципиально иначе, чем ``screen``: носитель
+    по-прежнему идеально плоский, но изображённое на нём лицо **поворачивается
+    само**, поскольку на экране проигрывается запись живого человека.
+
+    Args:
+        n_subjects: число синтетических участников.
+        n_videos_per_class: записей каждого класса на участника.
+        seed: seed генератора.
+
+    Returns:
+        Таблица признаков уровня видео с колонкой ``attack_type`` из
+        ``none`` / ``screen`` / ``replay``.
+    """
+    rng = np.random.default_rng(seed)
+    rows: list[dict[str, Any]] = []
+
+    for subject_idx in range(n_subjects):
+        subject_id = f"synthetic_{subject_idx + 1:03d}"
+        subject_depth = float(np.clip(rng.normal(LIVE_NOSE_DEPTH, 0.025), 0.05, 0.22))
+        subject_distance = float(np.clip(rng.normal(CAMERA_DISTANCE, 0.35), 1.2, 3.5))
+        subject_amp = float(np.clip(rng.normal(25.0, 6.0), 10.0, 38.0))
+
+        for label, attack_type in (("live", "none"), ("attack", "screen"), ("attack", "replay")):
+            for take in range(n_videos_per_class):
+                amp = subject_amp * float(rng.uniform(0.85, 1.15))
+                yaw, pitch = head_motion(N_FRAMES, amp, amp * 0.6)
+                yaw = yaw + rng.normal(0, 0.6, N_FRAMES)
+                pitch = pitch + rng.normal(0, 0.4, N_FRAMES)
+                distance = subject_distance * float(rng.uniform(0.95, 1.05))
+
+                if attack_type == "replay":
+                    # Экран двигают своим движением, независимым от движения
+                    # головы в записанном ролике.
+                    amp_screen = subject_amp * float(rng.uniform(0.85, 1.15))
+                    yaw_s, pitch_s = head_motion(N_FRAMES, amp_screen, amp_screen * 0.6)
+                    yaw_s = yaw_s + rng.normal(0, 0.6, N_FRAMES)
+                    pitch_s = pitch_s + rng.normal(0, 0.4, N_FRAMES)
+                    frames = render_replay_sequence(
+                        yaw_displayed=yaw,
+                        pitch_displayed=pitch,
+                        yaw_screen=yaw_s,
+                        pitch_screen=pitch_s,
+                        nose_depth=subject_depth,
+                        record_distance=subject_distance,
+                        camera_distance=distance,
+                        video_id=f"{subject_id}_replay_{take + 1}",
+                    )
+                else:
+                    depth = subject_depth if label == "live" else PLANAR_NOSE_DEPTH
+                    frames = render_sequence(depth, yaw, pitch, distance)
+
+                ratios = compute_ratios(frames)
+                base = compute_baseline_features(frames.iloc[len(frames) // 2])
+                base["b_sharpness"] = float("nan")
+                suffix = "live" if label == "live" else attack_type
+                rows.append(
+                    {
+                        "video_id": f"{subject_id}_{suffix}_{take + 1}",
+                        "subject_id": subject_id,
+                        "label": label,
+                        "y": LABEL_TO_INT[label],
+                        "attack_type": attack_type,
+                        "device": "synthetic",
+                        "lighting": "synthetic",
+                        "n_valid_frames": int(len(frames)),
+                        "median_iod": float(np.median(ratios["iod"])),
+                        **compute_g_features(ratios),
+                        **base,
+                    }
+                )
+
+    columns = [
+        "video_id", "subject_id", "label", "y", "attack_type", "device", "lighting",
+        "n_valid_frames", "median_iod", "G1", "G2", "G3", *BASELINE_FEATURE_NAMES,
+    ]
+    return pd.DataFrame(rows, columns=columns)
+
+
+def experiment_replay_attack(
+    config: Config, n_subjects: int = 8
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Проверить предсказание: устоит ли модель против атаки воспроизведением.
+
+    Протокол намеренно повторяет реальный эксперимент: модель **обучается
+    только на том, что было собрано** — живых записях и атаках статической
+    фотографией, — а затем к ней предъявляется невиданный класс ``replay``.
+    Тестовый субъект не участвует ни в нормализации, ни в выборе порога.
+
+    Returns:
+        (признаки по классам, доля replay-атак, принятых за живые).
+    """
+    from src.pls_model import PLSModel
+
+    features = build_replay_dataset(n_subjects=n_subjects, seed=config.seed)
+
+    per_class = (
+        features.groupby("attack_type")[list(G_NAMES)]
+        .agg(["mean", "min", "max"])
+        .reset_index()
+    )
+
+    rows: list[dict[str, Any]] = []
+    for subject in sorted(features["subject_id"].unique()):
+        is_test = features["subject_id"] == subject
+        # Обучение: другие субъекты, и ТОЛЬКО известные классы (live + screen).
+        train = features[~is_test & (features["attack_type"] != "replay")]
+        model = PLSModel(config).fit(train)
+        test = features[is_test]
+        predictions = model.predict(test)
+        scores = model.score(test)
+        for (_, row), pred, score in zip(test.iterrows(), predictions, scores):
+            rows.append(
+                {
+                    "fold_subject": subject,
+                    "video_id": row["video_id"],
+                    "attack_type": row["attack_type"],
+                    "y_true": int(row["y"]),
+                    "y_pred": int(pred),
+                    "score": float(score),
+                    "tau": float(model.tau_),
+                    "predicted_live": bool(pred == 1),
+                }
+            )
+    return per_class, pd.DataFrame(rows)

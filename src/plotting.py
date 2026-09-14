@@ -497,6 +497,42 @@ def generate_synthetic_plots(config: Config, results: dict[str, pd.DataFrame]) -
     made["motion"] = plot_synthetic_motion_types(config, results["motion"])
     made["noise"] = plot_synthetic_noise(config, results["noise"])
     made["roc"] = plot_synthetic_roc(config, results["predictions"])
+    if "replay_predictions" in results:
+        made["replay"] = plot_synthetic_replay(config, results["replay_predictions"])
     if "rules" in results:
         made["rules"] = plot_synthetic_threshold_rules(config, results["rules"])
     return made
+
+
+def plot_synthetic_replay(config: Config, predictions: pd.DataFrame) -> Path | None:
+    """Доля записей, принятых моделью за живые, по трём классам (E6).
+
+    Столбец ``replay`` показывает, какая доля атак воспроизведением прошла
+    проверку живости. Значение 1.0 означает, что модель не распознала ни одной.
+    """
+    dpi, figsize = _style(config)
+    out = _syn_dir(config) / "synthetic_replay_attack.png"
+    if predictions.empty:
+        return None
+
+    labels = {
+        "none": "живое лицо\n(должно проходить)",
+        "screen": "фото на экране\n(должно отсеиваться)",
+        "replay": "ВИДЕО на экране\n(должно отсеиваться)",
+    }
+    order = ["none", "screen", "replay"]
+    share = predictions.groupby("attack_type")["predicted_live"].mean()
+    share = [float(share.get(k, float("nan"))) for k in order]
+
+    fig, ax = plt.subplots(figsize=figsize)
+    colors = ["#2a9d8f", "#2a9d8f", "#c1121f"]
+    bars = ax.bar([labels[k] for k in order], share, color=colors)
+    ax.bar_label(bars, fmt="%.0f%%", labels=[f"{v * 100:.0f}%" for v in share], fontsize=10)
+    ax.axhline(1.0, color="grey", linestyle=":", linewidth=1)
+    ax.set_ylabel("доля записей, принятых за живые")
+    ax.set_ylim(0, 1.15)
+    ax.set_title(
+        "E6. Атака воспроизведением обходит модель\n"
+        "(обучение только на живых записях и фото на экране)"
+    )
+    return _save(fig, out, dpi)
