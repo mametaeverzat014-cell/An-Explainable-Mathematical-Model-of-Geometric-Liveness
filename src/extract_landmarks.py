@@ -88,8 +88,22 @@ class _LegacyFaceMeshBackend:
     name = "solutions.face_mesh"
 
     def __init__(self, cfg: dict[str, Any]) -> None:
+        self._cfg = cfg
+        self._mesh = None
+        self.reset()
+
+    def reset(self) -> None:
+        """Начать новую запись с чистым состоянием трекинга.
+
+        FaceMesh сохраняет состояние между вызовами ``process``, поэтому без
+        сброса положение лица из конца предыдущего видео влияло бы на первые
+        кадры следующего.
+        """
         import mediapipe as mp  # локальный импорт: тяжёлая зависимость
 
+        if self._mesh is not None:
+            self._mesh.close()
+        cfg = self._cfg
         self._mesh = mp.solutions.face_mesh.FaceMesh(
             static_image_mode=bool(cfg.get("static_image_mode", False)),
             max_num_faces=int(cfg.get("max_num_faces", 1)),
@@ -148,9 +162,31 @@ class _TasksFaceLandmarkerBackend:
             output_face_blendshapes=False,              # лишний подграф не нужен
             output_facial_transformation_matrixes=False,
         )
-        self._landmarker = vision.FaceLandmarker.create_from_options(options)
+        self._options = options
+        self._vision = vision
+        self._landmarker = None
+        self._last_timestamp = -1
+        self.reset()
+
+    def reset(self) -> None:
+        """Начать новую запись: сбросить трекинг и отсчёт времени.
+
+        В режиме VIDEO метки времени обязаны строго возрастать в пределах
+        одного распознавателя, а нумерация кадров у каждого видео начинается
+        с нуля. Без пересоздания второй файл вызывал бы ошибку
+        "Input timestamp must be monotonically increasing", а состояние
+        трекинга переносилось бы между разными записями.
+        """
+        if self._landmarker is not None:
+            self._landmarker.close()
+        self._landmarker = self._vision.FaceLandmarker.create_from_options(self._options)
+        self._last_timestamp = -1
 
     def process(self, rgb_frame: np.ndarray, timestamp_ms: int) -> np.ndarray | None:
+        # Страховка на случай одинаковых меток при высокой частоте кадров.
+        if timestamp_ms <= self._last_timestamp:
+            timestamp_ms = self._last_timestamp + 1
+        self._last_timestamp = timestamp_ms
         image = self._mp.Image(image_format=self._mp.ImageFormat.SRGB, data=rgb_frame)
         result = self._landmarker.detect_for_video(image, timestamp_ms)
         if not result.face_landmarks:
@@ -287,6 +323,8 @@ def extract_video_landmarks(
         DataFrame со схемой :data:`LANDMARK_CSV_COLUMNS`; кадры без лица
         сохраняются со ``face_found=0`` и NaN-координатами.
     """
+    if hasattr(backend, "reset"):
+        backend.reset()          # каждая запись обрабатывается независимо
     rows: list[dict[str, Any]] = []
     for frame_idx, rgb in iter_video_frames(video_path, max_frames, stride):
         timestamp_ms = int(1000.0 * frame_idx / max(fps_hint, 1.0))
