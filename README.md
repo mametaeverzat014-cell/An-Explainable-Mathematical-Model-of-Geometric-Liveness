@@ -455,6 +455,33 @@ MediaPipe не нашёл лицо. Обычные причины: слишко�
 Python. Команда `pip install mediapipe==0.10.21` на Python 3.13+ действительно
 не сработает — для этой ветки сборок нет.
 
+**Падение `Check failed: service_ Service is unavailable` с упоминанием
+`DrishtiMetalHelper` (только macOS, MediaPipe 1.x).**
+Библиотека пытается поднять Metal-ускоритель, которого нет. Начиная с этой
+версии проект принудительно считает на CPU, поэтому сначала обновитесь:
+
+```bash
+git pull
+python scripts/run_pipeline.py --config configs/prototype.yaml
+```
+
+Если падение повторяется, надёжный обходной путь — ветка MediaPipe `0.10.x`,
+где эта проблема отсутствует. Она требует Python 3.10–3.12, а Homebrew для
+этого не нужен: скачайте установщик с python.org (раздел macOS, самая свежая
+версия **3.12**, файл вида `python-3.12.x-macos11.pkg`), установите двойным
+щелчком и пересоздайте окружение:
+
+```bash
+cd ~/Documents/An-Explainable-Mathematical-Model-of-Geometric-Liveness
+rm -rf .venv
+python3.12 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Файл `models/face_landmarker.task` в этом случае не нужен — модель встроена
+в пакет. Уже разложенные видео и `metadata.csv` останутся на месте.
+
 **`Нужен локальный файл модели MediaPipe`.**
 У вас Python 3.13+ и ветка MediaPipe 1.x. Выполните команду `curl` из раздела 3.2
 **в каталоге проекта** и запустите пайплайн снова.

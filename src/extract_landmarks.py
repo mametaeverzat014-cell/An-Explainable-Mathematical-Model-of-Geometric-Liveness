@@ -129,12 +129,20 @@ class _TasksFaceLandmarkerBackend:
                 "с локальным файлом модели.\n\n" + task_model_help()
             )
         self._mp = mp
+        # Вычисления принудительно на CPU. На macOS вариант с GPU пытается
+        # поднять Metal-хелпер и падает с "Check failed: service_ Service is
+        # unavailable" — аварийным завершением процесса, которое невозможно
+        # перехватить из Python. Проект и так заявлен как CPU-only, поэтому
+        # ускоритель здесь не нужен.
+        delegate = BaseOptions.Delegate.CPU
         options = vision.FaceLandmarkerOptions(
-            base_options=BaseOptions(model_asset_path=str(model_path)),
+            base_options=BaseOptions(model_asset_path=str(model_path), delegate=delegate),
             running_mode=vision.RunningMode.VIDEO,
             num_faces=int(cfg.get("max_num_faces", 1)),
             min_face_detection_confidence=float(cfg.get("min_detection_confidence", 0.5)),
             min_tracking_confidence=float(cfg.get("min_tracking_confidence", 0.5)),
+            output_face_blendshapes=False,              # лишний подграф не нужен
+            output_facial_transformation_matrixes=False,
         )
         self._landmarker = vision.FaceLandmarker.create_from_options(options)
 
