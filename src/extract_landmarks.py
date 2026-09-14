@@ -25,8 +25,47 @@ import pandas as pd
 from src.constants import LANDMARK_CSV_COLUMNS, LANDMARK_INDICES, LANDMARK_NAMES
 from src.utils import Config, ensure_dir, get_logger, load_config, load_metadata
 
-#: Путь к файлу модели Tasks API (нужен только для mediapipe>=1.0).
+#: Переменная окружения с путём к файлу модели Tasks API (mediapipe>=1.0).
 TASK_MODEL_ENV = "FACE_LANDMARKER_TASK"
+
+#: Путь по умолчанию внутри проекта, где ищется файл модели.
+DEFAULT_TASK_MODEL_RELPATH = "models/face_landmarker.task"
+
+#: Официальный адрес модели (скачивается ПОЛЬЗОВАТЕЛЕМ вручную, не кодом).
+TASK_MODEL_URL = (
+    "https://storage.googleapis.com/mediapipe-models/face_landmarker/"
+    "face_landmarker/float16/1/face_landmarker.task"
+)
+
+
+def resolve_task_model_path() -> Path | None:
+    """Найти локальный файл модели для Tasks API.
+
+    Порядок поиска: переменная окружения ``FACE_LANDMARKER_TASK``, затем
+    ``models/face_landmarker.task`` в корне проекта. Модель НИКОГДА не
+    скачивается автоматически — путь только проверяется.
+    """
+    import os
+
+    from src.utils import project_root
+
+    env_path = os.environ.get(TASK_MODEL_ENV, "").strip()
+    if env_path and Path(env_path).exists():
+        return Path(env_path)
+    default_path = project_root() / DEFAULT_TASK_MODEL_RELPATH
+    return default_path if default_path.exists() else None
+
+
+def task_model_help() -> str:
+    """Инструкция по получению файла модели (одна команда)."""
+    return (
+        "Нужен локальный файл модели MediaPipe. Скачайте его одной командой\n"
+        "из каталога проекта:\n\n"
+        f"    mkdir -p models && curl -L -o {DEFAULT_TASK_MODEL_RELPATH} \\\n"
+        f"      {TASK_MODEL_URL}\n\n"
+        "После этого модель находится автоматически. Альтернатива — указать\n"
+        f"свой путь в переменной окружения {TASK_MODEL_ENV}."
+    )
 
 
 class LandmarkBackendError(RuntimeError):
@@ -78,24 +117,20 @@ class _TasksFaceLandmarkerBackend:
     name = "tasks.FaceLandmarker"
 
     def __init__(self, cfg: dict[str, Any]) -> None:
-        import os
-
         import mediapipe as mp
         from mediapipe.tasks.python import BaseOptions
         from mediapipe.tasks.python import vision
 
-        model_path = os.environ.get(TASK_MODEL_ENV, "")
-        if not model_path or not Path(model_path).exists():
+        model_path = resolve_task_model_path()
+        if model_path is None:
             raise LandmarkBackendError(
-                "Установлена версия mediapipe>=1.0, в которой удалён "
-                "solutions.face_mesh, а Tasks API требует локальный файл модели.\n"
-                "Решение 1 (рекомендуется): pip install 'mediapipe>=0.10,<1.0'\n"
-                f"Решение 2: скачать face_landmarker.task вручную и указать путь в "
-                f"переменной окружения {TASK_MODEL_ENV}."
+                "Установлена версия mediapipe>=1.0 (обычная ситуация на Python 3.13+),\n"
+                "в которой solutions.face_mesh удалён, а Tasks API работает только\n"
+                "с локальным файлом модели.\n\n" + task_model_help()
             )
         self._mp = mp
         options = vision.FaceLandmarkerOptions(
-            base_options=BaseOptions(model_asset_path=model_path),
+            base_options=BaseOptions(model_asset_path=str(model_path)),
             running_mode=vision.RunningMode.VIDEO,
             num_faces=int(cfg.get("max_num_faces", 1)),
             min_face_detection_confidence=float(cfg.get("min_detection_confidence", 0.5)),

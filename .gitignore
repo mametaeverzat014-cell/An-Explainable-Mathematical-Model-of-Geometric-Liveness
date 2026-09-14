@@ -8,6 +8,9 @@ results/**
 figures/**
 !figures/.gitkeep
 
+# Файл модели MediaPipe (скачивается локально, ~3.7 МБ)
+models/
+
 # Python
 __pycache__/
 *.py[cod]

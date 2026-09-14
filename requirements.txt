@@ -1,9 +1,6 @@
 # Минимальный набор зависимостей (только CPU, без облачных API).
 #
-# ВАЖНО: требуется Python 3.10-3.12.
-# У mediapipe есть колёса (wheels) только для cp39-cp312. На Python 3.13/3.14
-# установка завершится ошибкой "Could not find a version that satisfies the
-# requirement mediapipe". Проверить версию: python --version
+# Поддерживаются Python 3.10-3.12 и 3.13+ (разными ветками mediapipe, см. ниже).
 numpy>=1.24
 pandas>=2.0
 scikit-learn>=1.3
@@ -11,9 +8,11 @@ matplotlib>=3.7
 seaborn>=0.12
 pyyaml>=6.0
 opencv-python>=4.8
-# ВАЖНО: ветка 0.10.x содержит встроенную модель FaceMesh и не требует загрузки
-# файлов из сети. В mediapipe>=1.0 solutions.face_mesh удалён и нужен локальный
-# файл модели face_landmarker.task (см. README, раздел "Установка").
-mediapipe>=0.10,<1.0
+# Версия mediapipe выбирается автоматически по версии Python:
+#   * Python 3.10-3.12 -> ветка 0.10.x: модель FaceMesh ВСТРОЕНА, ничего качать не надо;
+#   * Python 3.13+     -> ветка 1.x: solutions.face_mesh удалён, нужен локальный файл
+#     модели face_landmarker.task (одна команда, см. README, раздел 3.3).
+mediapipe>=0.10,<1.0; python_version < "3.13"
+mediapipe>=1.0; python_version >= "3.13"
 # Для тестов (необязательно для запуска пайплайна):
 pytest>=7.4

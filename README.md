@@ -51,50 +51,76 @@
 
 ## 3. Установка
 
-Требуется **Python 3.10–3.12** и обычный компьютер (GPU не нужен, всё считается на CPU).
+Нужен обычный компьютер — GPU не требуется, всё считается на CPU.
+Поддерживаются **Python 3.10 и новее**; от версии зависит только способ
+получения модели MediaPipe (pip выберет нужную ветку сам).
 
-> ⚠️ **Версия Python принципиальна.** У MediaPipe есть сборки только для
-> Python 3.9–3.12. На Python **3.13 и 3.14 установка не сработает**: pip напишет
-> `Could not find a version that satisfies the requirement mediapipe`.
-> Проверьте версию командой `python3 --version`. Если она новее 3.12, поставьте
-> Python 3.12 отдельно (macOS: `brew install python@3.12`) и создавайте
-> виртуальное окружение именно им — системный Python трогать не нужно.
+Проверьте свою версию:
 
-### 3.1. Виртуальное окружение
+```bash
+python3 --version
+```
 
-Linux / macOS:
+### 3.1. Виртуальное окружение и зависимости
 
 ```bash
 git clone -b claude/modest-mendel-5tcrb7 \
   https://github.com/mametaeverzat014-cell/An-Explainable-Mathematical-Model-of-Geometric-Liveness.git
 cd An-Explainable-Mathematical-Model-of-Geometric-Liveness
 
-python3.12 -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-Все команды выполняются **из каталога проекта** (там, где лежит `requirements.txt`).
+Windows (PowerShell): вместо двух средних строк —
+`py -3 -m venv .venv` и `.venv\Scripts\Activate.ps1`.
 
-Windows (PowerShell):
+Все последующие команды выполняются **из каталога проекта** (там, где лежит
+`requirements.txt`). Проверить, где вы находитесь: `pwd`.
 
-```powershell
-py -3 -m venv .venv
-.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install -r requirements.txt
+### 3.2. Один дополнительный шаг для Python 3.13 и новее
+
+У MediaPipe есть две ветки, и `requirements.txt` выбирает нужную автоматически:
+
+| Ваш Python | Ветка MediaPipe | Нужен ли файл модели |
+|---|---|---|
+| 3.10 – 3.12 | `0.10.x` | **нет**, модель встроена в пакет |
+| 3.13 и новее | `1.x` | **да**, одна команда ниже |
+
+В ветке `1.x` модуль `solutions.face_mesh` удалён, и новый Tasks API работает
+только с локальным файлом модели. Если у вас Python 3.13+, выполните
+**из каталога проекта** одну команду:
+
+```bash
+mkdir -p models && curl -L -o models/face_landmarker.task \
+  https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task
 ```
 
-### 3.2. Замечание о версии MediaPipe
+Файл (~3.7 МБ) находится автоматически — настраивать ничего не нужно.
+Можно положить модель в другое место и указать путь в переменной окружения
+`FACE_LANDMARKER_TASK`. Код **никогда не скачивает модель сам**: загрузка
+остаётся явным действием пользователя.
 
-В файле `requirements.txt` версия зафиксирована как `mediapipe>=0.10,<1.0`.
-Это сделано намеренно: в ветке 0.10.x модель Face Mesh **встроена в пакет**, поэтому
-ничего не нужно скачивать из интернета. В `mediapipe>=1.0` модуль
-`mediapipe.solutions.face_mesh` удалён, и новый Tasks API требует локальный файл модели
-`face_landmarker.task`. Проект поддерживает оба варианта: если установлена версия 1.x,
-укажите путь к файлу модели в переменной окружения `FACE_LANDMARKER_TASK`.
-Проект **никогда не скачивает модели самостоятельно**.
+### 3.3. Проверка установки
+
+```bash
+python -c "import mediapipe, cv2; print('ok')"
+python -m pytest tests/ -q
+```
+
+Ожидается `ok` и `23 passed`.
+
+### 3.4. Примечание о версиях MediaPipe
+
+Проект поддерживает **оба** бэкенда MediaPipe и выбирает доступный сам:
+
+* `solutions.face_mesh` (ветка 0.10.x) — модель встроена, сеть не нужна;
+* `tasks.FaceLandmarker` (ветка 1.x) — нужен локальный файл модели (см. 3.2).
+
+Числовые результаты двух веток могут незначительно различаться, поэтому версию
+MediaPipe стоит зафиксировать в отчёте: `pip show mediapipe`.
 
 ---
 
@@ -357,10 +383,14 @@ MediaPipe не нашёл лицо. Обычные причины: слишко�
 Лицо слишком мелкое в кадре — подойдите ближе к камере.
 
 **`Could not find a version that satisfies the requirement mediapipe`.**
-Почти всегда это несовместимая версия Python. MediaPipe собран для Python 3.9–3.12,
-на 3.13/3.14 колёс нет. Проверьте `python --version` внутри активированного окружения;
-если версия новее 3.12 — пересоздайте окружение на Python 3.12
-(macOS: `brew install python@3.12`, затем `/opt/homebrew/bin/python3.12 -m venv .venv`).
+Обновите `pip` (`python -m pip install --upgrade pip`) и ставьте зависимости строго
+через `pip install -r requirements.txt`: там прописан выбор ветки MediaPipe по версии
+Python. Команда `pip install mediapipe==0.10.21` на Python 3.13+ действительно
+не сработает — для этой ветки сборок нет.
+
+**`Нужен локальный файл модели MediaPipe`.**
+У вас Python 3.13+ и ветка MediaPipe 1.x. Выполните команду `curl` из раздела 3.2
+**в каталоге проекта** и запустите пайплайн снова.
 
 **`Could not open requirements file` / `can't open file 'scripts/run_pipeline.py'`.**
 Команда запущена не из каталога проекта. Выполните `cd` в папку, где лежит
