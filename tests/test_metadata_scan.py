@@ -76,3 +76,44 @@ def test_scan_handles_missing_directory(tmp_path: Path) -> None:
     records, warnings = scan_raw_videos(tmp_path / "нет-такого")
     assert records == []
     assert any("не найден" in w for w in warnings)
+
+
+# --------------------------------------------------------------------------
+# Защита от аварийного завершения mediapipe 1.x под macOS
+# --------------------------------------------------------------------------
+import unittest.mock as _mock  # noqa: E402
+
+import pytest  # noqa: E402
+
+from src.extract_landmarks import (  # noqa: E402
+    ALLOW_MACOS_TASKS_ENV,
+    LandmarkBackendError,
+    check_macos_tasks_bug,
+)
+
+
+def test_macos_with_mediapipe_1x_is_refused_before_it_aborts() -> None:
+    """Сочетание должно дать понятное сообщение, а не падение процесса."""
+    with _mock.patch("sys.platform", "darwin"):
+        with pytest.raises(LandmarkBackendError, match="python.org"):
+            check_macos_tasks_bug("1.0.1")
+
+
+def test_macos_with_legacy_branch_is_allowed() -> None:
+    """Ветка 0.10.x под macOS работает и запрещать её нельзя."""
+    with _mock.patch("sys.platform", "darwin"):
+        check_macos_tasks_bug("0.10.21")
+
+
+def test_other_platforms_are_not_affected() -> None:
+    """На Linux и Windows этот путь кода исправен."""
+    for platform in ("linux", "win32"):
+        with _mock.patch("sys.platform", platform):
+            check_macos_tasks_bug("1.0.1")
+
+
+def test_check_can_be_disabled_for_a_future_fix(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Когда ошибку в mediapipe исправят, запрет должен сниматься."""
+    monkeypatch.setenv(ALLOW_MACOS_TASKS_ENV, "1")
+    with _mock.patch("sys.platform", "darwin"):
+        check_macos_tasks_bug("1.0.1")

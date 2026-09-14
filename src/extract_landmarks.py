@@ -31,6 +31,10 @@ TASK_MODEL_ENV = "FACE_LANDMARKER_TASK"
 #: Путь по умолчанию внутри проекта, где ищется файл модели.
 DEFAULT_TASK_MODEL_RELPATH = "models/face_landmarker.task"
 
+#: Переменная окружения, снимающая запрет на Tasks API под macOS
+#: (см. :func:`check_macos_tasks_bug`).
+ALLOW_MACOS_TASKS_ENV = "FACEPAD_ALLOW_MACOS_TASKS"
+
 #: Официальный адрес модели (скачивается ПОЛЬЗОВАТЕЛЕМ вручную, не кодом).
 TASK_MODEL_URL = (
     "https://storage.googleapis.com/mediapipe-models/face_landmarker/"
@@ -158,6 +162,52 @@ class _TasksFaceLandmarkerBackend:
         self._landmarker.close()
 
 
+def check_macos_tasks_bug(mp_version: str) -> None:
+    """Прервать работу до аварийного завершения процесса на macOS.
+
+    В mediapipe 1.x под macOS граф детектора лица обращается к Metal-хелперу,
+    которого нет, и процесс падает с ``Check failed: service_ Service is
+    unavailable`` внутри ``DrishtiMetalHelper``. Это аварийное завершение
+    (SIGABRT), а не исключение: перехватить его из Python невозможно, поэтому
+    пользователь видит стек вызовов C++ вместо объяснения. Принудительный
+    выбор CPU-делегата проблему НЕ решает.
+
+    Проверка снимается переменной окружения ``FACEPAD_ALLOW_MACOS_TASKS=1`` —
+    на случай, если в будущей версии mediapipe ошибку исправят.
+
+    Raises:
+        LandmarkBackendError: если сочетание заведомо приводит к падению.
+    """
+    import os
+    import sys
+
+    if sys.platform != "darwin" or os.environ.get(ALLOW_MACOS_TASKS_ENV) == "1":
+        return
+    major = mp_version.split(".", 1)[0]
+    if not major.isdigit() or int(major) < 1:
+        return
+
+    raise LandmarkBackendError(
+        f"mediapipe {mp_version} под macOS аварийно завершает процесс при\n"
+        "обработке лица (ошибка Metal в DrishtiMetalHelper). Это ошибка самой\n"
+        "библиотеки, а не проекта, и обойти её настройками нельзя.\n\n"
+        "РЕШЕНИЕ: перейти на ветку mediapipe 0.10.x, где её нет. Она требует\n"
+        "Python 3.10-3.12; Homebrew не нужен, достаточно установщика с\n"
+        "python.org (раздел macOS, версия 3.12, файл вида\n"
+        "python-3.12.x-macos11.pkg). После установки:\n\n"
+        "    rm -rf .venv\n"
+        "    python3.12 -m venv .venv\n"
+        "    source .venv/bin/activate\n"
+        "    pip install -r requirements.txt\n"
+        "    python scripts/run_pipeline.py --config configs/prototype.yaml\n\n"
+        "Видеозаписи и metadata.csv останутся на месте, заново раскладывать\n"
+        "их не нужно. Файл models/face_landmarker.task тоже не понадобится:\n"
+        "в ветке 0.10.x модель встроена в пакет.\n\n"
+        f"Если ошибку в mediapipe исправят, проверку можно снять:\n"
+        f"    export {ALLOW_MACOS_TASKS_ENV}=1"
+    )
+
+
 def create_backend(cfg: dict[str, Any]):
     """Выбрать доступный бэкенд MediaPipe с понятным сообщением об ошибке."""
     try:
@@ -185,6 +235,7 @@ def create_backend(cfg: dict[str, Any]):
 
     if hasattr(mp, "solutions") and hasattr(mp.solutions, "face_mesh"):
         return _LegacyFaceMeshBackend(cfg)
+    check_macos_tasks_bug(getattr(mp, "__version__", "1.0"))
     return _TasksFaceLandmarkerBackend(cfg)
 
 
