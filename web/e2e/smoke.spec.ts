@@ -46,6 +46,8 @@ test('camera + MediaPipe run under the CSP (fake camera, no face)', async ({ pag
   await page.getByRole('combobox').nth(1).selectOption('CPU');
   await page.getByRole('button', { name: 'Start camera' }).click();
   await expect(page.getByRole('button', { name: 'Stop' })).toBeEnabled({ timeout: 60_000 });
+  // The "starting…" overlay must disappear once the camera runs.
+  await expect(page.locator('.stage-placeholder')).toBeHidden();
   // Frames are processed: the frame-rate measurement appears.
   await expect(page.locator('.kv', { hasText: 'Frame rate' }).locator('.kv-value')).toHaveText(/fps/, { timeout: 30_000 });
   await page.goto('/#diagnostics');
@@ -61,6 +63,8 @@ test('camera + MediaPipe run under the CSP (fake camera, no face)', async ({ pag
 
 test('record view blocks recording people without an ethics approval reference', async ({ page }) => {
   await page.goto('/#record');
+  // Person-only fields stay hidden while a print is selected.
+  await expect(page.getByPlaceholder('P01')).toBeHidden();
   await page.getByRole('button', { name: 'Start camera' }).click();
   const recordBtn = page.getByRole('button', { name: 'Record', exact: true });
   await expect(recordBtn).toBeEnabled({ timeout: 60_000 });

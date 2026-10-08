@@ -270,6 +270,8 @@ export function recordView(): { element: HTMLElement; dispose: () => void } {
     if (overlay.width !== v.videoWidth) {
       overlay.width = v.videoWidth;
       overlay.height = v.videoHeight;
+      // Match the stage to the camera's aspect ratio (portrait on phones).
+      stage.style.aspectRatio = `${v.videoWidth} / ${v.videoHeight}`;
     }
     const ctx = overlay.getContext('2d');
     if (!ctx) return;

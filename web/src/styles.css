@@ -79,6 +79,11 @@
   box-sizing: border-box;
 }
 
+/* The hidden attribute must win over component display rules (e.g. display: flex). */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
@@ -421,6 +426,8 @@ progress {
   border-radius: var(--radius);
   overflow: hidden;
   aspect-ratio: 16 / 9;
+  max-height: 75vh;
+  margin: 0 auto;
 }
 
 .stage video,
