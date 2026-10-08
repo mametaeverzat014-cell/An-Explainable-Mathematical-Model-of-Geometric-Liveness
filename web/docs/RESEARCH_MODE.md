@@ -57,7 +57,7 @@ npm run analyze -- --calibration recordings/<calibration>.json \
                    --out analysis-out recordings/<trial1>.json recordings/<trial2>.json
 ```
 
-- σ is estimated from the calibration file with the students' M5 function.
+- σ is estimated from the calibration file with the method's M5 function.
   The calibration is rejected if the pose changed by more than
   `--max-cal-motion` degrees.
 - **Pair rule “non-overlapping windows”**: each trial is cut into consecutive
@@ -69,8 +69,9 @@ npm run analyze -- --calibration recordings/<calibration>.json \
   `summary.json` (settings, σ with its interval, per-recording rejection rate
   with a Wilson 95 % interval).
 
-Until the method (`src/student/`) is implemented, the analysis runs and
-reports which stage is missing, without inventing numbers.
+If a method stage fails (or an implementation substituted via
+`METHOD_IMPL_DIR` is incomplete), the analysis reports which stage, without
+inventing numbers.
 
 **Statistical caution.** Pairs from the same recording are not independent
 (same object, same session, temporally correlated landmark noise). The Wilson

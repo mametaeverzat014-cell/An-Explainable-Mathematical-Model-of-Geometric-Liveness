@@ -32,5 +32,5 @@ export const PROVENANCE_HELP: Record<Provenance, string> = {
     'Computed by the planarity test. Valid only under the assumptions in MATH_SPEC.md; not yet validated on real presentations.',
   'synthetic-truth': 'Known exactly because the scene is simulated.',
   configuration: 'A setting fixed in advance. Defaults marked "placeholder" still need justification.',
-  'not-implemented': 'The student-owned function for this step has not been written yet (see web/docs/MATH_SPEC.md).',
+  'not-implemented': 'The method function for this step is not implemented in the build you are running.',
 };

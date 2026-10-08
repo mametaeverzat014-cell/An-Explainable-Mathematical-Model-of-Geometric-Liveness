@@ -1,13 +1,14 @@
 // Integration tests of the application layer around the method. They use
-// (a) the real, unimplemented student stubs, to check that the app degrades
-// to "not implemented" instead of inventing numbers, and (b) a FAKE method
-// with deliberately simple, non-scientific behaviour, to check the plumbing.
-// The fake is not an implementation of the method.
+// (a) a STUB method whose functions all throw NotImplementedError, to check
+// that the app degrades to "not implemented" instead of inventing numbers,
+// (b) a FAKE method with deliberately simple, non-scientific behaviour, to
+// check the plumbing, and (c) the real method, end to end.
 import { describe, expect, it } from 'vitest';
 import { NotImplementedError } from '../errors';
 import { FrameBuffer, calibrationPairs, correspondences, selectReference, type LandmarkFrame } from '../frames';
 import { rotationFromAngles } from '../geometry3d';
-import { analyzePair, calibrateNoise, probeMethod, STUDENT_METHOD, type PlanarityMethod } from '../method';
+import { analyzePair, calibrateNoise, probeMethod, DEFAULT_METHOD, type PlanarityMethod } from '../method';
+import { LANDMARK_SETS } from '../landmark-sets';
 import { runSweep } from '../montecarlo';
 
 const square = [
@@ -19,6 +20,18 @@ const square = [
   { x: 20, y: 70 },
 ];
 const corr = { src: square, dst: square.map((p) => ({ x: p.x + 1, y: p.y })) };
+
+const notImplemented = (name: string) => () => {
+  throw new NotImplementedError(name);
+};
+const STUB: PlanarityMethod = {
+  estimateHomography: notImplemented('estimateHomography'),
+  sampsonErrorsSquared: notImplemented('sampsonErrorsSquared'),
+  planarityStatistic: notImplemented('planarityStatistic'),
+  decide: notImplemented('decide'),
+  estimateNoiseSigma: notImplemented('estimateNoiseSigma'),
+  sigmaConfidenceInterval: notImplemented('sigmaConfidenceInterval'),
+};
 
 const FAKE: PlanarityMethod = {
   estimateHomography: () => [1, 0, 1, 0, 1, 0, 0, 0, 1],
@@ -34,9 +47,9 @@ const FAKE: PlanarityMethod = {
   sigmaConfidenceInterval: (e) => [e.sigmaPx * 0.9, e.sigmaPx * 1.1],
 };
 
-describe('analyzePair with the unimplemented student stubs', () => {
+describe('analyzePair with an unimplemented (stub) method', () => {
   it('reports every stage as not implemented / skipped and produces no numbers', () => {
-    const a = analyzePair(corr, { sigmaPx: 1, alpha: 0.05, minMotionDeg: 5, motionDeg: 10 }, STUDENT_METHOD);
+    const a = analyzePair(corr, { sigmaPx: 1, alpha: 0.05, minMotionDeg: 5, motionDeg: 10 }, STUB);
     expect(a.homography).toBeNull();
     expect(a.stat).toBeNull();
     expect(a.outcome).toBeNull();
@@ -45,17 +58,17 @@ describe('analyzePair with the unimplemented student stubs', () => {
   });
 
   it('probeMethod lists all six functions as not implemented', () => {
-    const status = probeMethod(STUDENT_METHOD);
+    const status = probeMethod(STUB);
     expect(status).toHaveLength(6);
     expect(status.every((s) => !s.implemented)).toBe(true);
   });
 
   it('calibration reports not-implemented', () => {
-    expect(calibrateNoise([corr], STUDENT_METHOD).state).toBe('not-implemented');
+    expect(calibrateNoise([corr], STUB).state).toBe('not-implemented');
   });
 
   it('a Monte-Carlo sweep stops with a clear reason', async () => {
-    const r = await runSweep({ kinds: ['plane'], rotationsDeg: [5], axis: 'yaw', sigmaPx: 1, distanceCm: 50, indices: [1, 4, 33, 263, 61, 291], trials: 3, alpha: 0.05, seed: 1 });
+    const r = await runSweep({ kinds: ['plane'], rotationsDeg: [5], axis: 'yaw', sigmaPx: 1, distanceCm: 50, indices: [1, 4, 33, 263, 61, 291], trials: 3, alpha: 0.05, seed: 1 }, undefined, STUB);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.reason).toMatch(/homography/);
   });
@@ -153,5 +166,32 @@ describe('frame buffer and pair selection', () => {
     expect(c.pairs).toHaveLength(4);
     expect(c.maxRotationDeg).toBeCloseTo(2, 9);
     expect(correspondences(frames[0], frames[5], [7]).dst[0]).toEqual({ x: 7, y: 165 });
+  });
+});
+
+describe('the real method, end to end', () => {
+  it('probeMethod reports all six functions as implemented', () => {
+    expect(probeMethod(DEFAULT_METHOD).every((m) => m.implemented)).toBe(true);
+  });
+
+  it('a small sweep separates the flat print from the 3D face', async () => {
+    const r = await runSweep({
+      kinds: ['plane', 'face3d'],
+      rotationsDeg: [8],
+      axis: 'yaw',
+      sigmaPx: 1,
+      distanceCm: 50,
+      indices: LANDMARK_SETS.rigid.indices,
+      trials: 100,
+      alpha: 0.05,
+      seed: 5,
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      const plane = r.points.find((p) => p.kind === 'plane')!;
+      const face = r.points.find((p) => p.kind === 'face3d')!;
+      expect(plane.rate).toBeLessThan(0.15);
+      expect(face.rate).toBeGreaterThan(0.95);
+    }
   });
 });

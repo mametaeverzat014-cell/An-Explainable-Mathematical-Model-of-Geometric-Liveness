@@ -21,7 +21,8 @@ preceded this work):
 1. *Authorship.* The git history shows that almost all code and text were
    produced by an AI assistant, while the report states the work was done
    independently. Addressed by `AI_ASSISTANCE.md` and by reserving the method
-   for the students (`web/src/student/`).
+   for the students. *Changed on 2026-10-08: at the team's request the method
+   was implemented by the assistant (`web/src/method/`); see AI_ASSISTANCE.md.*
 2. *Ethics.* Faces of minors were recorded with no approval on record.
    Phase 2 is blocked until approval exists.
 3. *Pseudo-depth.* The old features used MediaPipe's `z`, which is a learned
@@ -42,7 +43,7 @@ preceded this work):
 | Method language | TypeScript, one implementation used by the app and the tests | A single source of truth. Phase 2 analysis scripts will reuse the same code from Node, so app and analysis cannot disagree. *If the students prefer Python, the specification is language-neutral; tell us before they start.* |
 | Method | Homography fit + Sampson residuals + χ² test with calibrated σ | A standard, citable null model with explicit assumptions, replacing the uncalibrated variance score. |
 | Privacy | Everything on-device; CSP `connect-src 'self'`; model and WASM self-hosted with a pinned checksum | No data can leave the device, and the property is verifiable. |
-| Split of work | Students: M1–M7 and D1–D6. Assistant: everything else | Authenticity of the scientific contribution. |
+| Split of work | Originally: students M1–M7 and D1–D6. Since 2026-10-08: assistant implemented M1–M6; students own D1–D6, M7, experiments and interpretation | Authenticity of the scientific contribution; changed at the team's request. |
 | Validation tests | Written against the specification; checked against a throwaway reference that is not committed | The tests must be passable and have realistic tolerances, without handing over a solution. |
 
 ## 3. Phases
@@ -57,7 +58,7 @@ preceded this work):
 - App: Live view (overlay, statistic, noise floor, provenance labels),
   Synthetic lab (single pair + Monte-Carlo size and power with Wilson
   intervals), Diagnostics, Method & status, About.
-- Student interfaces M1–M6 with validation tests; MATH_SPEC.md.
+- Method interfaces M1–M6 with validation tests; MATH_SPEC.md. (Implemented 2026-10-08.)
 - Tests: infrastructure unit tests, integration tests, Playwright smoke tests
   against the production build.
 

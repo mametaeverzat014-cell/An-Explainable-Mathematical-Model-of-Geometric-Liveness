@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.ts",
-    "test:student": "vitest run --config vitest.student.config.ts",
+    "test:method": "vitest run --config vitest.method.config.ts",
     "test:e2e": "playwright test",
     "make-synthetic": "tsx scripts/make-synthetic-recordings.ts",
     "analyze": "tsx scripts/analyze-recordings.ts"

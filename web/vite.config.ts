@@ -1,5 +1,5 @@
 import { defineConfig, type Plugin } from 'vite';
-import { studentAlias } from './studentAlias.ts';
+import { methodAlias } from './methodAlias.ts';
 
 // Content-Security-Policy injected into the production build only (the dev
 // server needs inline scripts and a websocket for hot reload). connect-src
@@ -35,7 +35,7 @@ function injectCsp(): Plugin {
 
 export default defineConfig({
   base: './',
-  resolve: { alias: studentAlias() },
+  resolve: { alias: methodAlias() },
   plugins: [injectCsp()],
   build: { target: 'es2022', sourcemap: true },
 });

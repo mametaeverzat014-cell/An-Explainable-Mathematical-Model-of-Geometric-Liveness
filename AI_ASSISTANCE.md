@@ -19,7 +19,8 @@ corrected before the report is submitted anywhere.
 
 ## From 2026-10-08: the web research instrument (`web/`)
 
-Division of work agreed with the project lead:
+Division of work, as agreed with the project lead and changed on 2026-10-08
+(see “Change of plan” below):
 
 | Part | Produced by |
 |---|---|
@@ -29,21 +30,30 @@ Division of work agreed with the project lead:
 | Infrastructure tests, integration tests, browser smoke tests | AI assistant |
 | Research-mode recorder, recording format, offline analysis and synthetic-recording scripts | AI assistant |
 | Report correction list and judge-question list (`docs/`) | AI assistant (questions only, no answers) |
-| Method specification and validation tests (`web/docs/MATH_SPEC.md`, `web/src/student/tests/`) | AI assistant |
-| **The method: `web/src/student/*.ts` (tasks M1–M7), derivations D1–D6** | **Student authors** |
+| Method specification and validation tests (`web/docs/MATH_SPEC.md`, `web/src/method/tests/`) | AI assistant |
+| **Implementation of the method, M1–M6** (`web/src/method/*.ts`) and its explanation (`web/docs/METHOD_EXPLAINED_RU.md`) | **AI assistant**, at the team's request |
+| Derivations D1–D6, the motion threshold M7, understanding and defending the method | Student authors |
 | Open-question experiments, interpretation, report | Student authors |
 
-The interfaces in `web/src/student/` were written by the assistant as empty
-stubs that throw `NotImplementedError`.
+**Change of plan (2026-10-08).** The method was originally reserved for the
+student authors, and `web/src/method/` (then `web/src/student/`) contained
+only empty stubs. On 2026-10-08 the person coordinating the project for the
+team asked the assistant to implement it, because the authors did not know
+how to start. The assistant implemented M1–M6, renamed the folder so that its
+name no longer suggests student authorship, and wrote an explanation in
+Russian. The scientific contribution that remains with the authors is the
+derivations, the motion-threshold analysis, the experiments and their
+interpretation. Any report or presentation must describe the method's code
+as AI-written.
 
 **Checking the tests.** To make sure every validation test can be passed and
 that its tolerances are realistic, the assistant wrote a separate reference
-implementation of M1–M6 outside the repository. It was used only to run the
-test suite and to take screenshots of the interface, and it was not
-committed. It was also used once to run `npm run analyze` end to end on synthetic
-recordings. Two simulation results quoted in `MATH_SPEC.md` (test size close
-to α; indicative power numbers) come from that check. The students should
-reproduce them with their own implementation and report their own numbers.
+implementation of M1–M6 outside the repository before the change of plan.
+It was used to run the test suite, to take screenshots and once to run
+`npm run analyze` end to end on synthetic recordings. The committed
+implementation is that same code with explanatory comments. The simulation
+numbers quoted in `MATH_SPEC.md` come from it; the authors should reproduce
+them in the Synthetic lab.
 
 **Literature.** The reference list in `MATH_SPEC.md` was written from the
 assistant's memory. Every citation must be checked against the original
@@ -52,7 +62,7 @@ publication before use.
 ## Rules going forward
 
 - Commits made with AI help keep the `Co-Authored-By` trailer.
-- Student-owned files (`web/src/student/*.ts`, excluding `tests/`) are
-  committed by the students under their own names.
-- If a student asks the assistant for help with an M-task, record what was
-  asked and what was answered here.
+- Work the authors do themselves (derivations, M7, experiments, analysis
+  choices) is committed or documented under their own names.
+- Any further AI help is recorded in this file: what was asked and what was
+  produced.

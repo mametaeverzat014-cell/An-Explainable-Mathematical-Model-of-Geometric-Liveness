@@ -1,20 +1,18 @@
 # Mathematical specification — planarity test
 
-This document specifies the research method of Parallax Lab. Everything in
-`web/src/student/` is **yours to derive and implement**. The rest of `web/`
-is infrastructure (camera, MediaPipe, interface, synthetic scene, statistics
-utilities) and calls your functions through fixed interfaces.
+This document specifies the research method of Parallax Lab.
 
-How to work through it:
+**Status (2026-10-08).** M1–M6 are implemented in `web/src/method/` by the AI
+assistant at the team's request (`AI_ASSISTANCE.md`), and pass the validation
+suite (`npm run test:method`). A plain-language walkthrough in Russian is in
+`METHOD_EXPLAINED_RU.md`. The tasks below remain the authors' work, as
+**understanding and derivation** tasks:
 
-1. Do the derivation tasks (D1–D6) on paper first. Keep the pages; they are
-   part of your research record and what judges will ask about.
-2. Implement M1–M6 in `web/src/student/`. You may use the infrastructure
-   helpers named in each task. Do not copy an implementation from a library,
-   a website or an AI assistant. If you get stuck, ask your supervisor.
-3. Run `npm run test:student` until it passes. A test failing is information:
-   read what it checks before changing code.
-4. Then work on M7 and the open questions. These are research, not homework:
+1. Do the derivation tasks (D1–D6) on paper. Keep the pages: they are part of
+   your research record and what judges will ask about.
+2. For each of M1–M6, read the implementation and be able to explain every
+   line, and why the tests check what they check.
+3. Then work on M7 and the open questions. These are research, not homework:
    nobody knows the answers yet.
 
 Nothing in this document is a finished result. Statements marked
@@ -102,7 +100,7 @@ measure transfer error for noisy points at coordinates around 2000 px. Explain
 the difference using condition numbers (Hartley, 1997). Keep the numbers.
 
 Contract: see the comment in `homography.ts`; tests in
-`src/student/tests/homography.test.ts`.
+`src/method/tests/homography.test.ts`.
 
 ### M2. Sampson error — `sampsonErrorsSquared(H, src, dst)`
 
@@ -319,12 +317,12 @@ Phase 2.
 
 ```
 cd web
-npm run test:student        # validation suite for M1–M6 (fails until implemented)
+npm run test:method         # validation suite for M1–M6
 npm test                    # infrastructure tests (must always pass)
 ```
 
-The validation suite was checked against a separate, throwaway reference
-implementation written by the AI assistant, only to make sure every test can
-be passed and that its tolerances are realistic. That implementation is
-**not** in the repository. The `STUDENT_IMPL_DIR` environment variable exists
-so that a supervisor can run the same tests against another implementation.
+The validation suite was written before the implementation, from this
+specification, and checked against a throwaway reference to make sure its
+tolerances are realistic. The committed implementation is that reference with
+comments. The `METHOD_IMPL_DIR` environment variable lets a supervisor run the
+same tests against an independent implementation.

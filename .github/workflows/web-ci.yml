@@ -27,11 +27,9 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
 
-  # The method is implemented by the student authors. Until it is, this job
-  # fails by design; it is informational and does not block the workflow.
-  student-validation:
+  # Statistical validation of the planarity method (src/method/tests).
+  method-validation:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -40,4 +38,4 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
-      - run: npm run test:student
+      - run: npm run test:method

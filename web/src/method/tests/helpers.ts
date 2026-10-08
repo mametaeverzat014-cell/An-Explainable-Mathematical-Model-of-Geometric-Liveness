@@ -1,4 +1,4 @@
-// Shared fixtures for the student validation suite. Infrastructure only:
+// Shared fixtures for the method validation suite. Infrastructure only:
 // these helpers generate data with KNOWN properties; they do not contain any
 // part of the method under test.
 import { isNotImplemented } from '../../core/errors';

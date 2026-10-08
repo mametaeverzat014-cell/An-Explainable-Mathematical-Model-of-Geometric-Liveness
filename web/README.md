@@ -6,13 +6,14 @@ on laptops and phones. No video or landmark data leaves the device.
 
 **Status: Phase 1 (instrument) done; Phase 2 recording and analysis
 infrastructure in place.** The statistical method itself
-(`src/student/`) is to be implemented by the student authors. Until then the
-app shows measurements and reports every method step as *not implemented*.
-It does not invent results. There are no validated findings yet.
+(`src/method/`) is implemented (by the AI assistant at the team's request;
+see `../AI_ASSISTANCE.md`) and passes its validation suite. It has been
+validated only on the synthetic scene: there are no validated findings on
+real presentations yet.
 
 - What the test is and is not: [`docs/MATH_SPEC.md`](docs/MATH_SPEC.md),
   sections 2 and 9
-- Student tasks: [`docs/MATH_SPEC.md`](docs/MATH_SPEC.md), section 4
+- Method specification: [`docs/MATH_SPEC.md`](docs/MATH_SPEC.md); explanation in Russian: [`docs/METHOD_EXPLAINED_RU.md`](docs/METHOD_EXPLAINED_RU.md)
 - Recording and offline analysis: [`docs/RESEARCH_MODE.md`](docs/RESEARCH_MODE.md)
 - Audit and roadmap: [`docs/AUDIT_AND_PLAN.md`](docs/AUDIT_AND_PLAN.md)
 - Who wrote what: [`../AI_ASSISTANCE.md`](../AI_ASSISTANCE.md)
@@ -29,7 +30,7 @@ cd web
 npm ci                  # install exact dependency versions (package-lock.json)
 npm run dev             # fetch assets, start dev server at http://localhost:5173
 npm test                # infrastructure unit + integration tests (must pass)
-npm run test:student    # validation suite for the students' method (fails until implemented)
+npm run test:method     # statistical validation suite for the method
 npm run typecheck
 npm run build           # production build in dist/ (adds the Content-Security-Policy)
 npm run test:e2e        # browser smoke tests against the production build
@@ -71,7 +72,7 @@ applies wherever the files are served.
 
 ```
 src/
-  student/        method — OWNED BY THE STUDENT AUTHORS (stubs + validation tests)
+  method/         the planarity method (homography, Sampson error, χ² test, noise) + validation tests
   core/           infrastructure: linear algebra, statistics, synthetic scene,
                   landmark sets, frame buffer, method runner, Monte-Carlo
   capture/        camera, MediaPipe wrapper, frame timing, sensor detection
@@ -83,8 +84,8 @@ e2e/              Playwright smoke tests
 docs/             specification, audit and plan
 ```
 
-`@student` is an import alias for `src/student/index.ts`. Setting
-`STUDENT_IMPL_DIR=/path/to/dir` points it at another implementation, so a
+`@method` is an import alias for `src/method/index.ts`. Setting
+`METHOD_IMPL_DIR=/path/to/dir` points it at another implementation, so a
 supervisor can verify the tests independently.
 
 ## Privacy and data

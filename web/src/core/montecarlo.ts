@@ -1,4 +1,4 @@
-import { analyzePair, STUDENT_METHOD, type PlanarityMethod } from './method';
+import { analyzePair, DEFAULT_METHOD, type PlanarityMethod } from './method';
 import { Rng } from './rng';
 import { wilsonInterval } from './stats';
 import { makeObject, syntheticPair, type Intrinsics, type ObjectKind } from './synthetic';
@@ -48,7 +48,7 @@ export type SweepResult = { ok: true; points: SweepPoint[] } | { ok: false; reas
 export async function runSweep(
   spec: SweepSpec,
   onProgress?: (p: SweepProgress) => void,
-  method: PlanarityMethod = STUDENT_METHOD,
+  method: PlanarityMethod = DEFAULT_METHOD,
   shouldStop: () => boolean = () => false,
 ): Promise<SweepResult> {
   const total = spec.kinds.length * spec.rotationsDeg.length * spec.trials;

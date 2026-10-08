@@ -1,4 +1,4 @@
-import type { Outcome } from '@student';
+import type { Outcome } from '@method';
 import type { PairAnalysis } from '../core/method';
 import { badge, h } from './dom';
 

@@ -27,7 +27,7 @@ export function methodView(): { element: HTMLElement; dispose: () => void } {
 
   const statusCard = card(
     'Implementation status of the method',
-    h('p', { class: 'outcome-reason' }, `${implemented} of ${modules.length} student-owned functions are implemented. Run \`npm run test:student\` for the validation suite.`),
+    h('p', { class: 'outcome-reason' }, `${implemented} of ${modules.length} method functions are implemented. Run \`npm run test:method\` for the validation suite.`),
     h(
       'div',
       { class: 'table-wrap' },

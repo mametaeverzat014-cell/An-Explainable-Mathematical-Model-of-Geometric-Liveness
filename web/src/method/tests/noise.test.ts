@@ -1,7 +1,7 @@
 // Validation of tasks M5 (noise estimate) and M6 (confidence interval), MATH_SPEC.md.
 import { describe, expect, it } from 'vitest';
 import { expectValidationError } from './helpers';
-import { estimateNoiseSigma, sigmaConfidenceInterval } from '@student';
+import { estimateNoiseSigma, sigmaConfidenceInterval } from '@method';
 import { LANDMARK_SETS } from '../../core/landmark-sets';
 import { Rng } from '../../core/rng';
 import { makeObject, syntheticPair } from '../../core/synthetic';

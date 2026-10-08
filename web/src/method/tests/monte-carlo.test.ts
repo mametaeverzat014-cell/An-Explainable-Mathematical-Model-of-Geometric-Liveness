@@ -4,7 +4,7 @@
 // theory under its assumptions. It says NOTHING about real MediaPipe
 // landmarks, whose noise is not i.i.d. Gaussian (MATH_SPEC.md, Q1).
 import { describe, expect, it } from 'vitest';
-import { estimateHomography, planarityStatistic, sampsonErrorsSquared } from '@student';
+import { estimateHomography, planarityStatistic, sampsonErrorsSquared } from '@method';
 import { LANDMARK_SETS } from '../../core/landmark-sets';
 import { Rng } from '../../core/rng';
 import { makeObject, syntheticPair, type ObjectKind } from '../../core/synthetic';

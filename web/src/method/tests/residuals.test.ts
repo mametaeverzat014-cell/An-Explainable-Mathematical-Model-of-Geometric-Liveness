@@ -3,7 +3,7 @@
 // for constraints that are LINEAR in the point coordinates the Sampson
 // approximation is exact, which gives closed-form answers to test against.
 import { describe, expect, it } from 'vitest';
-import { sampsonErrorsSquared } from '@student';
+import { sampsonErrorsSquared } from '@method';
 import { IDENTITY3 } from '../../core/linalg';
 import { Rng } from '../../core/rng';
 import { H_TRUE, mapAll, randomPoints } from './helpers';

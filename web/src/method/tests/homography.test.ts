@@ -1,6 +1,6 @@
 // Validation of task M1 (MATH_SPEC.md): normalised DLT homography estimation.
 import { describe, expect, it } from 'vitest';
-import { estimateHomography } from '@student';
+import { estimateHomography } from '@method';
 import { normalizeHomographyScale } from '../../core/linalg';
 import { Rng } from '../../core/rng';
 import { makeObject, projectObject } from '../../core/synthetic';

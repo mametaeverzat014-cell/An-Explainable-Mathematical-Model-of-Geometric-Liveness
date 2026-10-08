@@ -1,6 +1,6 @@
 import { calibrationPairs, correspondences, frameRotationDeg, type LandmarkFrame } from './frames';
 import { rotationFromAngles } from './geometry3d';
-import { analyzePair, calibrateNoise, STUDENT_METHOD, type NoiseCalibration, type PlanarityMethod } from './method';
+import { analyzePair, calibrateNoise, DEFAULT_METHOD, type NoiseCalibration, type PlanarityMethod } from './method';
 import { framesOf, frameToRecorded, RECORDING_FORMAT, RECORDING_VERSION, type Recording, type RecordingMeta } from './recording';
 import { Rng } from './rng';
 import { wilsonInterval } from './stats';
@@ -92,7 +92,7 @@ export interface RecordingSummary {
   blockedStage: string | null;
 }
 
-export function analyzeRecording(rec: Recording, opts: AnalysisOptions, method: PlanarityMethod = STUDENT_METHOD): { rows: PairRow[]; summary: RecordingSummary } {
+export function analyzeRecording(rec: Recording, opts: AnalysisOptions, method: PlanarityMethod = DEFAULT_METHOD): { rows: PairRow[]; summary: RecordingSummary } {
   const frames = framesOf(rec);
   const pairs = selectWindowPairs(frames, opts);
   const rows: PairRow[] = [];
@@ -150,7 +150,7 @@ export function calibrationFromRecording(
   indices: readonly number[],
   gap: number,
   maxRotationDeg: number,
-  method: PlanarityMethod = STUDENT_METHOD,
+  method: PlanarityMethod = DEFAULT_METHOD,
 ): NoiseCalibration & { maxRotationDeg: number; rejectedForMotion: boolean } {
   if (rec.meta.role !== 'calibration') throw new Error(`recording ${rec.meta.id} is not a calibration recording`);
   const built = calibrationPairs(framesOf(rec), indices, gap);

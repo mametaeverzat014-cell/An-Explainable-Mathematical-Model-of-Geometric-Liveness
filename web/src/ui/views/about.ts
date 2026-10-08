@@ -28,7 +28,7 @@ export function aboutView(): { element: HTMLElement; dispose: () => void } {
     h(
       'p',
       {},
-      'The application infrastructure (camera and MediaPipe integration, user interface, synthetic scene, statistics utilities, tests and documentation) was written with the AI assistant Claude (Anthropic). The research method (homography estimation, residuals, test statistic, noise estimation and decision rule; folder src/student/) is reserved for the student authors, who derive and implement it themselves. The repository file AI_ASSISTANCE.md records this division in detail.',
+      'The application, including the implementation of the statistical method (folder src/method/), was written with the AI assistant Claude (Anthropic) at the request of the project team. The student authors are responsible for understanding and defending the method, for the derivations and for the experiments. The repository file AI_ASSISTANCE.md records this in detail.',
     ),
     h('h2', {}, 'Third-party components'),
     h('ul', {}, ...[

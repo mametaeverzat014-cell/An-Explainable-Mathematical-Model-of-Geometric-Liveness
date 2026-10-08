@@ -180,7 +180,7 @@ export function syntheticView(): { element: HTMLElement; dispose: () => void } {
     runBtn.disabled = false;
     stopBtn.disabled = true;
     if (!result.ok) {
-      status.textContent = result.reason === 'stopped' ? 'Stopped.' : `Cannot run: ${result.reason}. The method functions in src/student/ must be implemented first (MATH_SPEC.md).`;
+      status.textContent = result.reason === 'stopped' ? 'Stopped.' : `Cannot run: ${result.reason}. The method functions in src/method/ must be implemented first (MATH_SPEC.md).`;
       return;
     }
     status.textContent = `Done in ${((performance.now() - t0) / 1000).toFixed(1)} s. Seed ${sweep.seed}; rerunning with the same settings reproduces these numbers exactly.`;

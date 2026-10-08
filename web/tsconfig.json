@@ -16,7 +16,7 @@
     "noEmit": true,
     "types": ["vite/client", "node"],
     "baseUrl": ".",
-    "paths": { "@student": ["src/student/index.ts"] }
+    "paths": { "@method": ["src/method/index.ts"] }
   },
-  "include": ["src", "e2e", "scripts/*.ts", "studentAlias.ts", "vite.config.ts", "vitest.config.ts", "vitest.student.config.ts", "playwright.config.ts"]
+  "include": ["src", "e2e", "scripts/*.ts", "methodAlias.ts", "vite.config.ts", "vitest.config.ts", "vitest.method.config.ts", "playwright.config.ts"]
 }

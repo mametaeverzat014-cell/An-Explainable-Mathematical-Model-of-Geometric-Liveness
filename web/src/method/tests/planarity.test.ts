@@ -1,7 +1,7 @@
 // Validation of tasks M3 (statistic) and M4 (decision rule), MATH_SPEC.md.
 import { describe, expect, it } from 'vitest';
 import { expectValidationError } from './helpers';
-import { decide, planarityStatistic, type PlanarityStatistic } from '@student';
+import { decide, planarityStatistic, type PlanarityStatistic } from '@method';
 import { chiSquareSf } from '../../core/stats';
 
 describe('M3 planarityStatistic', () => {

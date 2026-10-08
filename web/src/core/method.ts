@@ -1,24 +1,24 @@
-import * as student from '@student';
-import type { NoiseEstimate, Outcome, PlanarityStatistic } from '@student';
+import * as method from '@method';
+import type { NoiseEstimate, Outcome, PlanarityStatistic } from '@method';
 import { isNotImplemented } from './errors';
 import { applyHomography } from './linalg';
 import type { Correspondences, Mat3, Point2 } from './types';
 
-// Runs the student-owned method stage by stage and records, for each stage,
+// Runs the method stage by stage and records, for each stage,
 // whether it ran, is not implemented yet, or failed. Nothing here computes
 // any part of the method itself.
 
 /** The method functions the application depends on (injectable for testing). */
 export interface PlanarityMethod {
-  estimateHomography: typeof student.estimateHomography;
-  sampsonErrorsSquared: typeof student.sampsonErrorsSquared;
-  planarityStatistic: typeof student.planarityStatistic;
-  decide: typeof student.decide;
-  estimateNoiseSigma: typeof student.estimateNoiseSigma;
-  sigmaConfidenceInterval: typeof student.sigmaConfidenceInterval;
+  estimateHomography: typeof method.estimateHomography;
+  sampsonErrorsSquared: typeof method.sampsonErrorsSquared;
+  planarityStatistic: typeof method.planarityStatistic;
+  decide: typeof method.decide;
+  estimateNoiseSigma: typeof method.estimateNoiseSigma;
+  sigmaConfidenceInterval: typeof method.sigmaConfidenceInterval;
 }
 
-export const STUDENT_METHOD: PlanarityMethod = student;
+export const DEFAULT_METHOD: PlanarityMethod = method;
 
 export type StageName = 'homography' | 'residuals' | 'statistic' | 'decision';
 export type StageState = 'ok' | 'not-implemented' | 'error' | 'skipped';
@@ -68,7 +68,7 @@ function skip(stage: StageName, stages: StageResult[], message: string): null {
 }
 
 /** Analyse one frame pair with the planarity test. */
-export function analyzePair(corr: Correspondences, options: PairOptions, method: PlanarityMethod = STUDENT_METHOD): PairAnalysis {
+export function analyzePair(corr: Correspondences, options: PairOptions, method: PlanarityMethod = DEFAULT_METHOD): PairAnalysis {
   const stages: StageResult[] = [];
   const homography = run('homography', stages, () => method.estimateHomography(corr.src, corr.dst));
 
@@ -114,7 +114,7 @@ export interface NoiseCalibration {
   message?: string;
 }
 
-export function calibrateNoise(pairs: readonly Correspondences[], method: PlanarityMethod = STUDENT_METHOD): NoiseCalibration {
+export function calibrateNoise(pairs: readonly Correspondences[], method: PlanarityMethod = DEFAULT_METHOD): NoiseCalibration {
   const stages: StageResult[] = [];
   const estimate = run('statistic', stages, () => method.estimateNoiseSigma(pairs));
   if (!estimate) return { estimate: null, interval95: null, pairs: pairs.length, state: stages[0].state, message: stages[0].message };
@@ -133,8 +133,8 @@ export interface ModuleStatus {
   implemented: boolean;
 }
 
-/** Probe which student functions are implemented, using a tiny valid input. */
-export function probeMethod(method: PlanarityMethod = STUDENT_METHOD): ModuleStatus[] {
+/** Probe which method functions are implemented, using a tiny valid input. */
+export function probeMethod(method: PlanarityMethod = DEFAULT_METHOD): ModuleStatus[] {
   const sq = [
     { x: 0, y: 0 },
     { x: 100, y: 0 },

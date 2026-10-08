@@ -28,16 +28,18 @@ test('every section renders without errors and declares the CSP', async ({ page 
   expect(errors).toEqual([]);
 });
 
-test('method page reports the student functions as not implemented', async ({ page }) => {
+test('method page reports all six method functions as implemented', async ({ page }) => {
   await page.goto('/#method');
-  await expect(page.getByText('0 of 6 student-owned functions are implemented')).toBeVisible();
+  await expect(page.getByText('6 of 6 method functions are implemented')).toBeVisible();
   await expect(page.getByText('None yet.')).toBeVisible();
 });
 
-test('synthetic sweep refuses to run without the method and says why', async ({ page }) => {
+test('synthetic sweep runs and fills the results table', async ({ page }) => {
   await page.goto('/#synthetic');
   await page.getByRole('button', { name: 'Run sweep' }).click();
-  await expect(page.getByText(/Cannot run: homography/)).toBeVisible();
+  await expect(page.getByText(/Done in .* s\. Seed 2024/)).toBeVisible({ timeout: 60_000 });
+  // 3 objects x 7 rotations, plus the header row.
+  await expect(page.locator('.data-table tbody tr')).toHaveCount(21);
 });
 
 test('camera + MediaPipe run under the CSP (fake camera, no face)', async ({ page }) => {

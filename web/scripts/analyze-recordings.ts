@@ -1,5 +1,5 @@
 // Reproducible offline analysis of exported recordings with the SAME method
-// code the app uses (src/student/). Usage:
+// code the app uses (src/method/). Usage:
 //
 //   npm run analyze -- --calibration cal.json [options] trial1.json trial2.json ...
 //

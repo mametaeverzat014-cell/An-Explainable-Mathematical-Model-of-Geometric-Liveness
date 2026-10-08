@@ -2,7 +2,7 @@ import type { Mat3, Point2 } from './types';
 
 // General numerical routines. These are infrastructure, not the research
 // method: the method (how the homography is estimated, which error is
-// minimised, how the test is built) lives in src/student/.
+// minimised, how the test is built) lives in src/method/.
 
 export const IDENTITY3: Mat3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 

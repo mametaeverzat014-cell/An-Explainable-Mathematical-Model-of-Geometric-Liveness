@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { NotImplementedError } from '../errors';
 import { LANDMARK_SETS } from '../landmark-sets';
 import type { PlanarityMethod } from '../method';
 import { framesOf, parseRecording, recordingFileName, RecordingValidationError, validateRecording, type Recording } from '../recording';
@@ -83,7 +84,8 @@ describe('analyzeRecording', () => {
   });
 
   it('reports the blocking stage when the method is not implemented', () => {
-    const { summary } = analyzeRecording(trial(), opts);
+    const STUB = { ...FAKE, estimateHomography: () => { throw new NotImplementedError('estimateHomography'); } };
+    const { summary } = analyzeRecording(trial(), opts, STUB);
     expect(summary.tested).toBe(0);
     expect(summary.blockedStage).toMatch(/homography/);
   });
@@ -93,5 +95,24 @@ describe('analyzeRecording', () => {
     const lines = csv.trim().split('\n');
     expect(lines[0]).toBe('recordingId,condition,window,tRefMs,tCurMs,motionDeg,n,T,dof,pValue,outcome,reason');
     expect(lines.length).toBe(5);
+  });
+});
+
+describe('analyzeRecording with the real method', () => {
+  it('estimates sigma from a synthetic calibration and keeps the flat print planar-consistent', async () => {
+    const { calibrationFromRecording } = await import('../recording-analysis');
+    const cal = syntheticRecording({ ...base, kind: 'plane', role: 'calibration', yawAmplitudeDeg: 0, pitchAmplitudeDeg: 0, durationMs: 3000, sigmaPx: 0.8, seed: 11 });
+    const c = calibrationFromRecording(cal, LANDMARK_SETS.rigid.indices, 5, 1);
+    expect(c.state).toBe('ok');
+    expect(c.estimate!.sigmaPx).toBeGreaterThan(0.7);
+    expect(c.estimate!.sigmaPx).toBeLessThan(0.9);
+    const plane = syntheticRecording({ ...base, kind: 'plane', role: 'trial', yawAmplitudeDeg: 20, pitchAmplitudeDeg: 10, durationMs: 12000, sigmaPx: 0.8, seed: 12 });
+    const face = syntheticRecording({ ...base, kind: 'face3d', role: 'trial', yawAmplitudeDeg: 20, pitchAmplitudeDeg: 10, durationMs: 12000, sigmaPx: 0.8, seed: 13 });
+    const opts2 = { indices: LANDMARK_SETS.rigid.indices, windowMs: 1000, alpha: 0.05, minMotionDeg: 5, sigmaPx: c.estimate!.sigmaPx };
+    const p = analyzeRecording(plane, opts2).summary;
+    const f = analyzeRecording(face, opts2).summary;
+    expect(p.tested).toBeGreaterThan(5);
+    expect(p.rejected).toBeLessThanOrEqual(2);
+    expect(f.rejected).toBe(f.tested);
   });
 });
