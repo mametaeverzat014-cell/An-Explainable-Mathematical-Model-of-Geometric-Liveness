@@ -61,7 +61,15 @@ preceded this work):
 - Tests: infrastructure unit tests, integration tests, Playwright smoke tests
   against the production build.
 
-### Phase 2 — research mode (blocked on ethics approval for human participants)
+### Phase 2 — research mode
+
+**Status (2026-10-08):** recording, export, offline analysis and synthetic
+recordings are implemented (`docs/RESEARCH_MODE.md`). Recording people stays
+blocked without an approval reference. Not yet built: protocol manager with a
+frozen hash, and APCER/BPCER reporting per PAI species. Both depend on design
+decisions the researchers have not made yet.
+
+Original plan:
 
 - Protocol manager: versioned, pre-registered protocol (hypotheses, sample
   size with justification, PAI species, motion script, landmark set, α,

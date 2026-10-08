@@ -16,6 +16,7 @@ test('every section renders without errors and declares the CSP', async ({ page 
   expect(csp).toContain("connect-src 'self'");
   for (const [hash, heading] of [
     ['live', 'Live planarity test'],
+    ['record', 'Record'],
     ['synthetic', 'Synthetic lab'],
     ['diagnostics', 'Diagnostics'],
     ['method', 'Method and status'],
@@ -56,4 +57,19 @@ test('camera + MediaPipe run under the CSP (fake camera, no face)', async ({ pag
   // No CSP violations or runtime errors. MediaPipe prints informational
   // lines ("INFO: Created TensorFlow Lite XNNPACK delegate…") via console.error.
   expect(errors.filter((e) => !e.startsWith('INFO:'))).toEqual([]);
+});
+
+test('record view blocks recording people without an ethics approval reference', async ({ page }) => {
+  await page.goto('/#record');
+  await page.getByRole('button', { name: 'Start camera' }).click();
+  const recordBtn = page.getByRole('button', { name: 'Record', exact: true });
+  await expect(recordBtn).toBeEnabled({ timeout: 60_000 });
+  await page.getByRole('combobox').first().selectOption('human-participant');
+  await expect(recordBtn).toBeDisabled();
+  await expect(page.getByText('Recording a person requires an ethics approval reference.')).toBeVisible();
+  await page.getByPlaceholder(/ethics committee/).fill('TEST-APPROVAL-1');
+  await page.getByPlaceholder('P01').fill('P01');
+  await expect(recordBtn).toBeDisabled();
+  await page.getByRole('checkbox').check();
+  await expect(recordBtn).toBeEnabled();
 });

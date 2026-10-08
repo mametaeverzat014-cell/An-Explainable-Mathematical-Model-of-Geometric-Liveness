@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.ts",
     "test:student": "vitest run --config vitest.student.config.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "make-synthetic": "tsx scripts/make-synthetic-recordings.ts",
+    "analyze": "tsx scripts/analyze-recordings.ts"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "1.0.1"
@@ -21,6 +23,7 @@
   "devDependencies": {
     "@playwright/test": "1.63.0",
     "@types/node": "22.20.3",
+    "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vite": "8.3.0",
     "vitest": "5.0.1"

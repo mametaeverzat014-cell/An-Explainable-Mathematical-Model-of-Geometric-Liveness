@@ -4,7 +4,8 @@ An open research instrument that tests whether the landmarks of a presented
 face move like points on a single plane. It runs entirely in the browser,
 on laptops and phones. No video or landmark data leaves the device.
 
-**Status: Phase 1 (instrument).** The statistical method itself
+**Status: Phase 1 (instrument) done; Phase 2 recording and analysis
+infrastructure in place.** The statistical method itself
 (`src/student/`) is to be implemented by the student authors. Until then the
 app shows measurements and reports every method step as *not implemented*.
 It does not invent results. There are no validated findings yet.
@@ -12,6 +13,7 @@ It does not invent results. There are no validated findings yet.
 - What the test is and is not: [`docs/MATH_SPEC.md`](docs/MATH_SPEC.md),
   sections 2 and 9
 - Student tasks: [`docs/MATH_SPEC.md`](docs/MATH_SPEC.md), section 4
+- Recording and offline analysis: [`docs/RESEARCH_MODE.md`](docs/RESEARCH_MODE.md)
 - Audit and roadmap: [`docs/AUDIT_AND_PLAN.md`](docs/AUDIT_AND_PLAN.md)
 - Who wrote what: [`../AI_ASSISTANCE.md`](../AI_ASSISTANCE.md)
 
@@ -31,6 +33,8 @@ npm run test:student    # validation suite for the students' method (fails until
 npm run typecheck
 npm run build           # production build in dist/ (adds the Content-Security-Policy)
 npm run test:e2e        # browser smoke tests against the production build
+npm run make-synthetic  # write example recordings from the synthetic scene
+npm run analyze -- ...  # offline analysis of recordings (docs/RESEARCH_MODE.md)
 ```
 
 `npm run dev` and `npm run build` first run `scripts/fetch-assets.mjs`. It
@@ -71,9 +75,10 @@ src/
   core/           infrastructure: linear algebra, statistics, synthetic scene,
                   landmark sets, frame buffer, method runner, Monte-Carlo
   capture/        camera, MediaPipe wrapper, frame timing, sensor detection
-  ui/             views (Live, Synthetic lab, Diagnostics, Method, About), charts
+  ui/             views (Live, Record, Synthetic lab, Diagnostics, Method, About), charts
   data/           canonical face geometry (from MediaPipe, Apache-2.0)
-scripts/          asset fetching (checksummed), canonical-face conversion
+scripts/          asset fetching (checksummed), canonical-face conversion,
+                  recording analysis and synthetic recordings (run with tsx)
 e2e/              Playwright smoke tests
 docs/             specification, audit and plan
 ```
@@ -86,7 +91,9 @@ supervisor can verify the tests independently.
 
 - The camera starts only when the user presses *Start camera*.
 - Frames and landmarks are processed in memory and discarded when the tab is
-  closed. Phase 1 has no export and no storage.
+  closed. The only way data leave the tab is the **Download JSON** button in
+  Record view, which saves landmark tracks (never video) to the user's own
+  device.
 - The production build forbids network connections to other origins
   (`connect-src 'self'`).
 - Recording other people is research with human participants. Do not use this

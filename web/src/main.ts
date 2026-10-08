@@ -5,12 +5,14 @@ import { aboutView } from './ui/views/about';
 import { diagnosticsView } from './ui/views/diagnostics';
 import { liveView } from './ui/views/live';
 import { methodView } from './ui/views/method';
+import { recordView } from './ui/views/record';
 import { syntheticView } from './ui/views/synthetic';
 
 type View = { element: HTMLElement; dispose: () => void };
 
 const ROUTES: { id: string; label: string; make: () => View }[] = [
   { id: 'live', label: 'Live', make: liveView },
+  { id: 'record', label: 'Record', make: recordView },
   { id: 'synthetic', label: 'Synthetic lab', make: syntheticView },
   { id: 'diagnostics', label: 'Diagnostics', make: diagnosticsView },
   { id: 'method', label: 'Method & status', make: methodView },

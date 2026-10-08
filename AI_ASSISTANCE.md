@@ -27,6 +27,8 @@ Division of work agreed with the project lead:
 | Infrastructure numerics: matrix routines, eigen-solver, χ² distribution, Wilson interval, seeded RNG | AI assistant |
 | Synthetic scene (canonical-face geometry, pinhole projection, noise) | AI assistant |
 | Infrastructure tests, integration tests, browser smoke tests | AI assistant |
+| Research-mode recorder, recording format, offline analysis and synthetic-recording scripts | AI assistant |
+| Report correction list and judge-question list (`docs/`) | AI assistant (questions only, no answers) |
 | Method specification and validation tests (`web/docs/MATH_SPEC.md`, `web/src/student/tests/`) | AI assistant |
 | **The method: `web/src/student/*.ts` (tasks M1–M7), derivations D1–D6** | **Student authors** |
 | Open-question experiments, interpretation, report | Student authors |
@@ -38,7 +40,8 @@ stubs that throw `NotImplementedError`.
 that its tolerances are realistic, the assistant wrote a separate reference
 implementation of M1–M6 outside the repository. It was used only to run the
 test suite and to take screenshots of the interface, and it was not
-committed. Two simulation results quoted in `MATH_SPEC.md` (test size close
+committed. It was also used once to run `npm run analyze` end to end on synthetic
+recordings. Two simulation results quoted in `MATH_SPEC.md` (test size close
 to α; indicative power numbers) come from that check. The students should
 reproduce them with their own implementation and report their own numbers.
 

@@ -367,6 +367,8 @@ h1 {
 }
 
 select,
+textarea,
+input[type='text'],
 input[type='number'] {
   font: inherit;
   color: var(--text-primary);
