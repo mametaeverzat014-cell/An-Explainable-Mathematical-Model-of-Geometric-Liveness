@@ -1,0 +1,7 @@
+node_modules/
+dist/
+test-results/
+playwright-report/
+# Third-party runtime assets fetched by scripts/fetch-assets.mjs (checksummed)
+public/models/
+public/wasm/
