@@ -159,6 +159,19 @@ plane, so the test has no power, and a non-rejection means nothing. The gate
 must be decided from motion alone. If it looked at the p-value too, the rule
 could be tuned to produce the answer one hopes for.
 
+**Which motion counts (changed 2026-10-09).** `motionDeg` is the
+*out-of-plane* rotation between the two poses: the angle by which the
+camera's viewing axis, expressed in the face's coordinates, turns
+(`outOfPlaneRotationDeg` in `core/geometry3d.ts`). Rotation about the viewing
+axis (in-plane roll) is excluded: it rotates the image, which is exactly a
+homography even for a 3D face, so it produces no parallax. Before this
+change the gate used the total rotation angle, and a 3D face rolled by 10°
+passed the gate while being rejected only ≈ 6 % of the time (≈ α), so it was
+reported as “consistent with a plane” instead of “inconclusive” (found in a
+code review; reproduced in simulation). Translation parallel to the image
+also creates some parallax but is not counted; that only makes the gate more
+cautious.
+
 The `reason` string is shown to users. It must say *why*, in one sentence,
 and must never say “live”, “real” or “attack”.
 
@@ -173,10 +186,17 @@ H₀ holds for every calibration pair `k`. Fit `H_k`, compute
 Show that `E[σ̂²] = σ²` under the M3 approximation. Skip pairs with fewer than
 5 correspondences. Return `{ sigmaPx: σ̂, dof: Σₖ(2nₖ − 8) }`.
 
-**Caution (open, Q3).** Calibration pairs from consecutive frames may share
-errors (MediaPipe smooths landmarks over time). That would make `σ̂` too
-small, and too many moving prints would be called non-planar. The app uses
-pairs 5 frames apart (a placeholder, not a derived value).
+**Pairs used by the app.** `calibrationPairs` in `core/frames.ts` uses
+disjoint pairs `(0, g), (2g, 3g), (4g, 5g), …` with `g = 5` frames, so no
+frame enters two pairs. With independent per-frame noise the pair costs are
+then independent, as M6 assumes. (Until 2026-10-09 neighbouring pairs shared
+a frame: `σ̂²` stayed unbiased, but the 95 % interval covered the true σ only
+≈ 88 % of the time in simulation. A regression test now checks coverage.)
+
+**Caution (open, Q3).** Frames a few apart may still share errors (MediaPipe
+smooths landmarks over time). That would make `σ̂` too small, and too many
+moving prints would be called non-planar. The gap of 5 frames is a
+placeholder, not a derived value.
 
 ### M6. Confidence interval for σ — `sigmaConfidenceInterval(estimate, confidence)`
 
@@ -210,8 +230,16 @@ fixed 5° gate is therefore not justified.
 ## 5. Pair selection (infrastructure; understand it)
 
 Among the frames of the last `windowMs`, the reference frame is the one whose
-MediaPipe head pose differs most from the current frame. The rule looks only
-at motion, never at residuals, so it does not bias the test.
+MediaPipe head pose differs most (out-of-plane, see M4) from the current
+frame. The rule looks only at motion, never at residuals.
+
+**Possible selection bias (open, not yet measured).** The pose is itself
+estimated by MediaPipe from the same image. Choosing the frame with the
+*largest* estimated rotation may favour frames whose landmark errors happen
+to look like 3D rotation, i.e. like parallax, which would inflate `T` under
+H₀. The synthetic scene cannot show this, because there the pose is exact.
+Check on real flat-print data: compare the false-rejection rate under this
+rule with a fixed-time-lag rule (e.g. the frame exactly `windowMs` earlier).
 
 The live display tests overlapping, strongly dependent frame pairs about
 10 times per second. Its stream of p-values is **not** a set of independent

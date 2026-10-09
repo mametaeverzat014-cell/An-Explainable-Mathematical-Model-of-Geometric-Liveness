@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { relativeRotationDeg, rotApply, rotationFrom4x4, rotationFromAngles } from '../geometry3d';
+import { outOfPlaneRotationDeg, relativeRotationDeg, rotApply, rotMul, rotZ, rotationFrom4x4, rotationFromAngles } from '../geometry3d';
 import { LANDMARK_SETS } from '../landmark-sets';
 import { CANONICAL_FACE, DEFAULT_INTRINSICS, addNoise, makeObject, projectObject, syntheticPair } from '../synthetic';
 import { Rng } from '../rng';
@@ -19,12 +19,30 @@ describe('rotations', () => {
     expect(relativeRotationDeg(t(a), t(b))).toBeCloseTo(relativeRotationDeg(a, b), 9);
   });
 
-  it('rotationFrom4x4 strips uniform scale', () => {
-    const r = rotationFromAngles(20, 5);
+  it('rotationFrom4x4 strips uniform scale and detects row- and column-major storage', () => {
+    const r = rotationFromAngles(20, 5, -4);
     const s = 3;
-    const m4 = [s * r[0], s * r[1], s * r[2], 0, s * r[3], s * r[4], s * r[5], 0, s * r[6], s * r[7], s * r[8], 0, 1, 2, 3, 1];
-    const back = rotationFrom4x4(m4)!;
-    back.forEach((v, i) => expect(v).toBeCloseTo(r[i], 12));
+    const t = [1.5, -2, -45]; // the face is ~45 cm in front of the camera
+    const rowMajor = [s * r[0], s * r[1], s * r[2], t[0], s * r[3], s * r[4], s * r[5], t[1], s * r[6], s * r[7], s * r[8], t[2], 0, 0, 0, 1];
+    const colMajor = [s * r[0], s * r[3], s * r[6], 0, s * r[1], s * r[4], s * r[7], 0, s * r[2], s * r[5], s * r[8], 0, t[0], t[1], t[2], 1];
+    for (const m4 of [rowMajor, colMajor]) {
+      const back = rotationFrom4x4(m4)!;
+      back.forEach((v, i) => expect(v).toBeCloseTo(r[i], 12));
+    }
+  });
+
+  it('out-of-plane rotation counts yaw and pitch but not roll about the viewing axis', () => {
+    const I = rotationFromAngles(0, 0);
+    expect(outOfPlaneRotationDeg(I, rotationFromAngles(10, 0))).toBeCloseTo(10, 9);
+    expect(outOfPlaneRotationDeg(I, rotationFromAngles(0, -7))).toBeCloseTo(7, 9);
+    expect(outOfPlaneRotationDeg(I, rotationFromAngles(0, 0, 15))).toBeCloseTo(0, 9);
+    // Roll about the CAMERA's viewing axis applied on top of any pose adds nothing.
+    const pose = rotationFromAngles(12, -5, 3);
+    const rolled = rotMul(rotZ((25 * Math.PI) / 180), pose);
+    expect(outOfPlaneRotationDeg(pose, rolled)).toBeCloseTo(0, 9);
+    expect(relativeRotationDeg(pose, rolled)).toBeCloseTo(25, 9);
+    // Small angles are resolved accurately (atan2, not acos).
+    expect(outOfPlaneRotationDeg(I, rotationFromAngles(0.01, 0))).toBeCloseTo(0.01, 9);
   });
 
   it('rotations preserve distances', () => {

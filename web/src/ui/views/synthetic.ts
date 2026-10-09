@@ -1,4 +1,4 @@
-import { relativeRotationDeg, rotationFromAngles } from '../../core/geometry3d';
+import { outOfPlaneRotationDeg, rotationFromAngles } from '../../core/geometry3d';
 import { LANDMARK_SETS, type LandmarkSetId } from '../../core/landmark-sets';
 import { analyzePair } from '../../core/method';
 import { runSweep, type SweepPoint } from '../../core/montecarlo';
@@ -53,7 +53,7 @@ export function syntheticView(): { element: HTMLElement; dispose: () => void } {
       },
       new Rng(single.seed),
     );
-    const motion = relativeRotationDeg(rotationFromAngles(0, 0), rotationFromAngles(single.yaw, single.pitch));
+    const motion = outOfPlaneRotationDeg(rotationFromAngles(0, 0), rotationFromAngles(single.yaw, single.pitch));
     const sigma = single.sigma > 0 ? single.sigma : null;
     const a = analyzePair(corr, { sigmaPx: sigma, alpha: single.alpha, minMotionDeg: 0, motionDeg: motion });
 

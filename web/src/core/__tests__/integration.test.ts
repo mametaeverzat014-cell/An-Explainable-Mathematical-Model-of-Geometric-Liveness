@@ -7,6 +7,8 @@ import { describe, expect, it } from 'vitest';
 import { NotImplementedError } from '../errors';
 import { FrameBuffer, calibrationPairs, correspondences, selectReference, type LandmarkFrame } from '../frames';
 import { rotationFromAngles } from '../geometry3d';
+import { Rng } from '../rng';
+import { addNoise, makeObject, projectObject, syntheticPair } from '../synthetic';
 import { analyzePair, calibrateNoise, probeMethod, DEFAULT_METHOD, type PlanarityMethod } from '../method';
 import { LANDMARK_SETS } from '../landmark-sets';
 import { runSweep } from '../montecarlo';
@@ -160,16 +162,66 @@ describe('frame buffer and pair selection', () => {
     expect(selectReference([old, current], current)).toBeNull();
   });
 
-  it('builds calibration pairs with the requested gap and reports motion during the hold', () => {
+  it('builds disjoint calibration pairs with the requested gap and reports motion during the hold', () => {
     const frames = Array.from({ length: 21 }, (_, i) => frame(i * 33, i === 20 ? 2 : 0));
     const c = calibrationPairs(frames, [1, 2, 3], 5);
-    expect(c.pairs).toHaveLength(4);
+    // (0,5), (10,15): no frame is used twice; (20,25) does not exist.
+    expect(c.pairs).toHaveLength(2);
+    expect(c.pairs[1].src).toEqual(correspondences(frames[10], frames[15], [1, 2, 3]).src);
     expect(c.maxRotationDeg).toBeCloseTo(2, 9);
+    // Motion is measured between ANY two frames, not only against the first.
+    const drift = [frame(0, 0), frame(33, 0.8), frame(66, -0.8)];
+    expect(calibrationPairs(drift, [1, 2, 3], 1).maxRotationDeg).toBeCloseTo(1.6, 9);
+    expect(() => calibrationPairs(frames, [1, 2, 3], 0)).toThrow(RangeError);
+    expect(() => calibrationPairs(frames, [1, 2, 3], 2.5)).toThrow(RangeError);
     expect(correspondences(frames[0], frames[5], [7]).dst[0]).toEqual({ x: 7, y: 165 });
   });
 });
 
 describe('the real method, end to end', () => {
+  it('the 95 % interval for σ from a still hold covers the true σ about 95 % of the time', () => {
+    // Regression test: calibration pairs that shared frames gave ~88 % coverage.
+    const idx = LANDMARK_SETS.rigid.indices;
+    const base = projectObject(makeObject('face3d'), { yawDeg: 0, pitchDeg: 0 }, 50);
+    const rng = new Rng(7);
+    const reps = 400;
+    let covered = 0;
+    for (let r = 0; r < reps; r++) {
+      const frames = Array.from({ length: 90 }, (_, k) => ({
+        timestampMs: k * 33,
+        width: 1280,
+        height: 720,
+        points: addNoise(base, 1, rng),
+        rotation: rotationFromAngles(0, 0),
+      }));
+      const cal = calibrateNoise(calibrationPairs(frames, idx, 5).pairs);
+      const [lo, hi] = cal.interval95!;
+      if (lo <= 1 && 1 <= hi) covered++;
+    }
+    expect(covered / reps).toBeGreaterThan(0.92);
+    expect(covered / reps).toBeLessThan(0.98);
+  });
+
+  it('pure in-plane roll of a 3D face does not pass the motion gate', () => {
+    // Roll about the viewing axis is an image rotation, i.e. an exact
+    // homography, so the test has no power; the gate must say "inconclusive".
+    const idx = LANDMARK_SETS.rigid.indices;
+    const rng = new Rng(3);
+    const poses = [0, 10].map((roll) => ({ yawDeg: 0, pitchDeg: 0, rollDeg: roll }));
+    const frames: LandmarkFrame[] = poses.map((pose, k) => ({
+      timestampMs: k * 100,
+      width: 1280,
+      height: 720,
+      points: projectObject(makeObject('face3d'), pose, 50),
+      rotation: rotationFromAngles(pose.yawDeg, pose.pitchDeg, pose.rollDeg),
+    }));
+    const sel = selectReference(frames, frames[1])!;
+    expect(sel.motionDeg).toBeLessThan(1e-6);
+    const corr = syntheticPair({ object: makeObject('face3d'), pose0: poses[0], pose1: poses[1], distanceCm: 50, sigmaPx: 1, indices: idx }, rng);
+    const a = analyzePair(corr, { sigmaPx: 1, alpha: 0.05, minMotionDeg: 5, motionDeg: sel.motionDeg });
+    expect(a.outcome?.kind).toBe('inconclusive');
+  });
+
   it('probeMethod reports all six functions as implemented', () => {
     expect(probeMethod(DEFAULT_METHOD).every((m) => m.implemented)).toBe(true);
   });

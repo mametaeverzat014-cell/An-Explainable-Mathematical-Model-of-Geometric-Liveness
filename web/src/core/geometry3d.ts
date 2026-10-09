@@ -72,13 +72,42 @@ export function relativeRotationDeg(r1: Rot3, r2: Rot3): number {
 }
 
 /**
- * Extract the upper-left 3x3 block of a 4x4 matrix stored as 16 numbers
- * (layout-agnostic for the purpose of relativeRotationDeg; see above), and
- * remove any uniform scale so that the result is a rotation.
+ * Out-of-plane rotation between two poses (degrees): the angle by which the
+ * camera's viewing axis, expressed in the face's own coordinates, turns.
+ *
+ * Why not the total rotation angle: turning the face about the viewing axis
+ * (in-plane roll) rotates the image, and an image rotation is exactly a
+ * homography even for a 3D face. Such motion produces no parallax, so it must
+ * not count towards the motion gate. Yaw and pitch count fully.
+ *
+ * R maps face coordinates to camera coordinates and is stored row-major, so
+ * the viewing axis in face coordinates, R^T z, is the third row of R.
+ * Computed with atan2 for accuracy at small angles.
+ */
+export function outOfPlaneRotationDeg(r1: Rot3, r2: Rot3): number {
+  const a = [r1[6], r1[7], r1[8]];
+  const b = [r2[6], r2[7], r2[8]];
+  const cross = Math.hypot(a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]);
+  const dot = a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  return radToDeg(Math.atan2(cross, dot));
+}
+
+/**
+ * Extract the rotation from a 4x4 pose matrix (MediaPipe's facial
+ * transformation matrix) as a row-major 3x3 matrix, removing any uniform
+ * scale.
+ *
+ * MediaPipe's JavaScript API does not state the storage order of the 16
+ * numbers. The pose contains a translation (the face is tens of centimetres
+ * from the camera), which sits in elements 12-14 when the matrix is stored
+ * column-major and in elements 3, 7, 11 when row-major; the order is detected
+ * from that. Detection matters for outOfPlaneRotationDeg, not for
+ * relativeRotationDeg.
  */
 export function rotationFrom4x4(m: ArrayLike<number>): number[] | null {
   if (m.length !== 16) return null;
-  const r = [m[0], m[1], m[2], m[4], m[5], m[6], m[8], m[9], m[10]];
+  const columnMajor = Math.abs(m[12]) + Math.abs(m[13]) + Math.abs(m[14]) > Math.abs(m[3]) + Math.abs(m[7]) + Math.abs(m[11]);
+  const r = columnMajor ? [m[0], m[4], m[8], m[1], m[5], m[9], m[2], m[6], m[10]] : [m[0], m[1], m[2], m[4], m[5], m[6], m[8], m[9], m[10]];
   const scale = Math.cbrt(
     r[0] * (r[4] * r[8] - r[5] * r[7]) - r[1] * (r[3] * r[8] - r[5] * r[6]) + r[2] * (r[3] * r[7] - r[4] * r[6]),
   );

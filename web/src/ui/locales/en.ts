@@ -89,7 +89,7 @@ export const en = {
   'live.noPose': 'Waiting for frames with a head-pose estimate.',
   'live.rowN': 'Landmarks n',
   'live.rowRotation': 'Rotation between frames',
-  'live.rowRotationHint': 'From MediaPipe’s facial transformation matrix; the reference frame is the one with the largest rotation in the window.',
+  'live.rowRotationHint': 'Out-of-plane rotation (turning or nodding) from MediaPipe’s facial transformation matrix. Tilting the head sideways in the image plane is not counted: it creates no parallax. The reference frame is the one with the largest such rotation in the window.',
   'live.rowGate': 'Motion gate',
   'live.gatePassed': 'passed',
   'live.gateBelow': 'below {min}°',
