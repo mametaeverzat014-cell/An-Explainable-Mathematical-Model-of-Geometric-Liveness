@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execSync, spawn } from 'node:child_process';
 import { mkdtempSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -145,4 +145,56 @@ test('experiment wizard requires confirmation and a running camera, and reports 
   // The fake camera shows no face, so nothing can be recorded.
   await expect(page.getByText('Nothing recorded: no face was found in the frames.')).toBeVisible({ timeout: 20_000 });
   await expect(page.getByRole('button', { name: 'Next' })).toBeDisabled();
+});
+
+// The app is served by a separate server that the test kills half-way, so
+// "offline" is real. (Playwright's context.setOffline does not apply to
+// requests made by a service worker in Chromium, so it cannot be used here.)
+test('after the first visit the app and the face model work offline', async ({ page }) => {
+  const errors = collectErrors(page);
+  const port = 4175;
+  const server = spawn('npx', ['vite', 'preview', '--port', String(port), '--strictPort'], { detached: true, stdio: 'ignore' });
+  const killServer = () => {
+    try {
+      process.kill(-server.pid!, 'SIGTERM');
+    } catch {
+      /* already gone */
+    }
+  };
+  try {
+    const base = `http://localhost:${port}/`;
+    await expect.poll(() => fetch(base).then((r) => r.status, () => 0), { timeout: 30_000 }).toBe(200);
+    await page.goto(`${base}#diagnostics`);
+    await expect(page.locator('.kv', { hasText: 'Works offline' })).toBeVisible();
+    // The worker claims the page once its precache is complete.
+    await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller), { timeout: 30_000 }).toBe(true);
+
+    killServer();
+    await expect.poll(() => fetch(base).then(() => 'up', () => 'down'), { timeout: 10_000 }).toBe('down');
+    const failed: string[] = [];
+    page.on('requestfailed', (r) => failed.push(new URL(r.url()).pathname));
+
+    await page.reload();
+    await expect(page.getByRole('heading', { level: 1, name: 'Diagnostics' })).toBeVisible();
+    await expect(page.locator('.kv', { hasText: 'Works offline' })).toContainText('yes');
+    // Control: a file that is not precached cannot load, so the server really is gone.
+    const uncached = await page.evaluate(() =>
+      fetch('wasm/vision_wasm_nosimd_internal.js').then(
+        () => 'loaded',
+        () => 'failed',
+      ),
+    );
+    expect(uncached).toBe('failed');
+    // The face model loads and runs without the server (the fake camera shows no face).
+    await page.goto(`${base}#live`);
+    await page.locator('main').getByRole('combobox').nth(1).selectOption('CPU');
+    await page.getByRole('button', { name: 'Start camera' }).click();
+    await expect(page.getByRole('button', { name: 'Stop' })).toBeEnabled({ timeout: 60_000 });
+    await expect(page.locator('.kv', { hasText: 'Frame rate' }).locator('.kv-value')).toHaveText(/fps/, { timeout: 30_000 });
+    // Only the control request may fail (the browser logs it as a console error).
+    expect(failed).toEqual(['/wasm/vision_wasm_nosimd_internal.js']);
+    expect(errors.filter((e) => !e.startsWith('INFO:') && e !== 'Failed to load resource: net::ERR_FAILED')).toEqual([]);
+  } finally {
+    killServer();
+  }
 });

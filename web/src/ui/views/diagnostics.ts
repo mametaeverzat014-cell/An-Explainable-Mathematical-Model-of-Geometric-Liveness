@@ -1,5 +1,6 @@
 import { sensorReport } from '../../capture/sensors';
 import { supportsVideoFrameCallback } from '../../capture/timing';
+import { offlineStatus } from '../../offline/register';
 import { card, clear, fmt, fmtUnit, h, note, row } from '../dom';
 import { t } from '../i18n';
 import { Plot } from '../plot';
@@ -32,6 +33,14 @@ export function diagnosticsView(): { element: HTMLElement; dispose: () => void }
     }
   })();
 
+  const offlineRow = (label: string) => row(t('diag.offline'), label, 'measured', t('diag.offlineHint'));
+  let offlineSlot = offlineRow('…');
+  void offlineStatus().then((s) => {
+    const next = offlineRow(t(`diag.offline.${s}`));
+    offlineSlot.replaceWith(next);
+    offlineSlot = next;
+  });
+
   const envCard = card(
     t('diag.cardEnv'),
     row(t('diag.secure'), yn(sensors.secureContext), 'measured'),
@@ -42,6 +51,7 @@ export function diagnosticsView(): { element: HTMLElement; dispose: () => void }
     row(t('diag.gyro'), yn(sensors.genericSensorGyroscope), 'measured'),
     row(t('diag.touch'), yn(sensors.touchDevice), 'measured'),
     row(t('diag.cores'), String(navigator.hardwareConcurrency ?? '—'), 'measured'),
+    offlineSlot,
     note(t('diag.sensorNote')),
     h('details', {}, h('summary', {}, t('diag.userAgent')), h('p', { class: 'mono' }, navigator.userAgent)),
   );

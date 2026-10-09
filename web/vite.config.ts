@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { join, relative, resolve, sep } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
 import { methodAlias } from './methodAlias.ts';
 
@@ -33,9 +36,53 @@ function injectCsp(): Plugin {
   };
 }
 
+// Files the service worker does NOT download in advance: source maps, and the
+// WebAssembly variants that only some browsers use (ES-module build; build
+// for browsers without SIMD). They are cached the first time they are used.
+const NOT_PRECACHED = [/\.map$/, /^wasm\/vision_wasm_module_internal\./, /^wasm\/vision_wasm_nosimd_internal\./];
+
+function listFiles(dir: string): string[] {
+  return readdirSync(dir).flatMap((name) => {
+    const full = join(dir, name);
+    return statSync(full).isDirectory() ? listFiles(full) : [full];
+  });
+}
+
+// Writes dist/sw.js from src/offline/service-worker.js with the list of files
+// to precache. The version is a hash of those files and of the worker
+// itself, so every change to the deployed app produces a new worker and a
+// fresh cache.
+function offlinePlugin(): Plugin {
+  let outDir = '';
+  let template = '';
+  return {
+    name: 'offline-service-worker',
+    apply: 'build',
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir);
+      template = resolve(config.root, 'src/offline/service-worker.js');
+    },
+    closeBundle() {
+      const source = readFileSync(template, 'utf8');
+      const files = listFiles(outDir)
+        .map((f) => relative(outDir, f).split(sep).join('/'))
+        .filter((f) => f !== 'sw.js' && !NOT_PRECACHED.some((re) => re.test(f)))
+        .sort();
+      const hash = createHash('sha256').update(source);
+      for (const f of files) hash.update(f).update(readFileSync(join(outDir, f)));
+      const version = hash.digest('hex').slice(0, 16);
+      const sw = source
+        .replace('const VERSION = __VERSION__;', `const VERSION = ${JSON.stringify(version)};`)
+        .replace('const PRECACHE = __PRECACHE__;', `const PRECACHE = ${JSON.stringify(files, null, 2)};`);
+      if (sw.includes('= __VERSION__') || sw.includes('= __PRECACHE__')) throw new Error('service worker template placeholders not replaced');
+      writeFileSync(join(outDir, 'sw.js'), sw);
+    },
+  };
+}
+
 export default defineConfig({
   base: './',
   resolve: { alias: methodAlias() },
-  plugins: [injectCsp()],
+  plugins: [injectCsp(), offlinePlugin()],
   build: { target: 'es2022', sourcemap: true },
 });

@@ -65,6 +65,25 @@ Browsers allow camera access only on `https://` or `localhost`. Options:
    HTTPS tunnel or a locally trusted certificate, because a plain LAN IP is
    not a secure context.
 
+## Offline use
+
+The production build includes a service worker (`src/offline/`, written to
+`dist/sw.js` by the build). After the first visit, the page, the face model
+and the WebAssembly runtime are in the browser cache, so the app opens and
+runs without a network (for example at a venue without Wi-Fi). Open the site
+once on each device beforehand, start the camera once, and check
+*Diagnostics → Works offline: yes*.
+
+- A new deployment is picked up in the background; the app shows a
+  “Reload” notice instead of reloading by itself, so a running recording is
+  not interrupted.
+- The rarely used WebAssembly variants (for browsers without SIMD) are not
+  downloaded in advance; they are cached on first use.
+- The e2e test `after the first visit … work offline` checks this by
+  killing the server and starting the camera afterwards.
+- Private/incognito windows may refuse the cache. The dev server
+  (`npm run dev`) does not register the worker.
+
 ## Deployment (GitHub Pages)
 
 The app is a static site, with relative paths (`base: './'`).
@@ -84,6 +103,7 @@ src/
   core/           infrastructure: linear algebra, statistics, synthetic scene,
                   landmark sets, frame buffer, method runner, Monte-Carlo
   capture/        camera, MediaPipe wrapper, frame timing, sensor detection
+  offline/        service worker (offline use) and its registration
   ui/             views (Live, Experiment, Record, Analyze, Synthetic lab, Diagnostics,
                   Method, About), charts, recorder; locales/ holds RU / KZ / EN strings
   data/           canonical face geometry (from MediaPipe, Apache-2.0)
@@ -106,6 +126,9 @@ supervisor can verify the tests independently.
   device.
 - The production build forbids network connections to other origins
   (`connect-src 'self'`).
+- The service worker stores only the app's own files (page, scripts, model,
+  WebAssembly) in the browser cache, never camera frames or landmarks, and
+  handles only requests to the app's own origin.
 - Recording other people is research with human participants. Do not use this
   tool on anyone else until the required ethics approval (IRB/SRC for ISEF)
   exists.

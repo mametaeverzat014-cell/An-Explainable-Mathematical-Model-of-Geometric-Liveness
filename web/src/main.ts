@@ -1,4 +1,5 @@
 import './styles.css';
+import { registerOffline } from './offline/register';
 import { h } from './ui/dom';
 import { getLang, LANGS, setLang, t, type Lang, type MessageKey } from './ui/i18n';
 import { session } from './ui/session';
@@ -93,6 +94,12 @@ function boot(): void {
   }
 
   renderHeader();
+  registerOffline(() => {
+    // Not reloaded automatically: a recording or experiment may be running.
+    const reload = h('button', { class: 'btn', type: 'button' }, t('shell.reload'));
+    reload.addEventListener('click', () => location.reload());
+    document.body.prepend(h('div', { class: 'update-bar', role: 'status' }, h('span', {}, t('shell.updated')), reload));
+  });
   window.addEventListener('hashchange', route);
   window.addEventListener('pagehide', () => session.stop());
   route();

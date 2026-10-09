@@ -14,6 +14,8 @@ export const en = {
   'shell.theme': 'Theme',
   'shell.themeAria': 'Toggle colour theme',
   'shell.language': 'Language',
+  'shell.updated': 'A new version of the app has been installed. Reload the page to use it.',
+  'shell.reload': 'Reload',
 
   // ---------- common ----------
   'common.startCamera': 'Start camera',
@@ -362,6 +364,13 @@ export const en = {
   'diag.gyro': 'Generic Sensor Gyroscope',
   'diag.touch': 'Touch device',
   'diag.cores': 'Logical CPU cores',
+  'diag.offline': 'Works offline',
+  'diag.offlineHint': 'After the first visit the app, the face model and the WebAssembly runtime are kept in the browser cache, so the site opens and runs without a network. Only the app\'s own files are cached, never camera data.',
+  'diag.offline.dev': 'not in the development server',
+  'diag.offline.unsupported': 'not supported by this browser',
+  'diag.offline.pending': 'not yet (files are still downloading; reload in a minute)',
+  'diag.offline.ready': 'yes',
+  'diag.offline.error': 'no (the browser refused; private mode?)',
   'diag.sensorNote':
     'Phase 3 (gyroscope consistency) will use these sensors. A desktop browser may expose DeviceMotionEvent without having any motion hardware; availability here does not mean data will arrive.',
   'diag.userAgent': 'User agent',
