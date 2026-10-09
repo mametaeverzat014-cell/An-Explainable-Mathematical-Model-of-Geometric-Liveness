@@ -18,6 +18,14 @@ real presentations yet.
 - Audit and roadmap: [`docs/AUDIT_AND_PLAN.md`](docs/AUDIT_AND_PLAN.md)
 - Who wrote what: [`../AI_ASSISTANCE.md`](../AI_ASSISTANCE.md)
 
+## Languages
+
+The interface is available in Russian, Kazakh and English (selector in the
+header; the choice is remembered in the browser). All strings live in
+`src/ui/locales/`; `en.ts` defines the keys and a test checks that `ru.ts`
+and `kk.ts` have the same keys and placeholders. The Kazakh translation was
+written by the AI assistant and must be checked by a native speaker.
+
 ## Requirements
 
 Node.js 22 (or 20.19+) and npm. A browser with camera access: recent Chrome,
@@ -76,7 +84,8 @@ src/
   core/           infrastructure: linear algebra, statistics, synthetic scene,
                   landmark sets, frame buffer, method runner, Monte-Carlo
   capture/        camera, MediaPipe wrapper, frame timing, sensor detection
-  ui/             views (Live, Record, Synthetic lab, Diagnostics, Method, About), charts
+  ui/             views (Live, Experiment, Record, Analyze, Synthetic lab, Diagnostics,
+                  Method, About), charts, recorder; locales/ holds RU / KZ / EN strings
   data/           canonical face geometry (from MediaPipe, Apache-2.0)
 scripts/          asset fetching (checksummed), canonical-face conversion,
                   recording analysis and synthetic recordings (run with tsx)

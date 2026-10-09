@@ -388,7 +388,7 @@ input[type='number'] {
   width: 90px;
 }
 
-button.btn {
+.btn {
   font: inherit;
   border: 1px solid var(--accent);
   background: var(--accent);
@@ -398,12 +398,12 @@ button.btn {
   cursor: pointer;
 }
 
-button.btn-secondary {
+.btn-secondary {
   background: transparent;
   color: var(--accent);
 }
 
-button.btn:disabled {
+.btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -605,4 +605,68 @@ details summary {
   height: 1px;
   overflow: hidden;
   clip: rect(0 0 0 0);
+}
+
+/* ---------- analyze: file drop zone ---------- */
+.dropzone {
+  border: 2px dashed var(--axis);
+  border-radius: var(--radius);
+  padding: 18px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.dropzone p {
+  margin: 0 0 10px;
+}
+
+.dropzone-active {
+  border-color: var(--accent);
+  background: var(--info-bg);
+}
+
+label.btn {
+  display: inline-block;
+}
+
+/* ---------- experiment wizard ---------- */
+.steps {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.step-pill {
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.step-pill[aria-current='step'] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.step-pill.done {
+  color: var(--text-secondary);
+}
+
+.step-pill.done::before {
+  content: '✓ ';
+}
+
+.big-result {
+  font-size: 18px;
+  font-weight: 650;
+  margin: 6px 0;
+}
+
+.lang-select {
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 6px;
 }

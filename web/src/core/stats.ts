@@ -1,3 +1,4 @@
+import { Rng } from './rng';
 // Standard statistical distribution functions (infrastructure).
 // Implementations follow the classical series / continued-fraction
 // expansions of the regularised incomplete gamma function
@@ -170,4 +171,28 @@ export function quantile(values: readonly number[], q: number): number {
   const lo = Math.floor(pos);
   const hi = Math.ceil(pos);
   return s[lo] + (s[hi] - s[lo]) * (pos - lo);
+}
+
+/**
+ * Percentile bootstrap interval for the mean of `values` (resampling the
+ * values with replacement). Used when the unit of analysis is the recording:
+ * resampling recordings, not frame pairs, respects the dependence between
+ * pairs from the same recording. Returns null for fewer than 2 values.
+ */
+export function bootstrapMeanInterval(
+  values: readonly number[],
+  seed: number,
+  reps = 4000,
+  confidence = 0.95,
+): [number, number] | null {
+  if (values.length < 2) return null;
+  const rng = new Rng(seed);
+  const means = new Array<number>(reps);
+  for (let r = 0; r < reps; r++) {
+    let s = 0;
+    for (let i = 0; i < values.length; i++) s += values[Math.floor(rng.uniform() * values.length)];
+    means[r] = s / values.length;
+  }
+  const a = (1 - confidence) / 2;
+  return [quantile(means, a), quantile(means, 1 - a)];
 }

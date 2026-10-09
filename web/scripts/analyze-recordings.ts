@@ -1,7 +1,10 @@
-// Reproducible offline analysis of exported recordings with the SAME method
-// code the app uses (src/method/). Usage:
+// Reproducible offline analysis of exported recordings with the SAME code the
+// app's Analyze view uses (analyzeSet in src/core/recording-analysis.ts).
 //
-//   npm run analyze -- --calibration cal.json [options] trial1.json trial2.json ...
+//   npm run analyze -- [options] <files...>
+//
+// Files may be single recordings or experiment bundles. Calibration (hold
+// still) and trial recordings are recognised by their role.
 //
 // Options (fix them in the protocol BEFORE looking at results):
 //   --set rigid|features|interior|all   landmark set            (default rigid)
@@ -10,29 +13,29 @@
 //   --alpha <a>                          significance level      (default 0.05)
 //   --gap <frames>                       calibration pair gap    (default 5)
 //   --max-cal-motion <deg>               calibration motion cap  (default 1)
-//   --sigma <px>                         use a fixed sigma instead of a calibration file
+//   --sigma <px>                         fixed sigma instead of calibration recordings
+//   --calibration <file>                 (optional) an extra calibration file
 //   --out <dir>                          output directory        (default analysis-out)
 //
-// Writes <out>/pairs.csv (one row per analysed frame pair) and
-// <out>/summary.json (settings, sigma, per-recording rejection rates).
+// Writes <out>/pairs.csv and <out>/summary.json.
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 import { LANDMARK_SETS, type LandmarkSetId } from '../src/core/landmark-sets';
-import { parseRecording } from '../src/core/recording';
-import { analyzeRecording, calibrationFromRecording, rowsToCsv, type PairRow } from '../src/core/recording-analysis';
+import { parseRecordingsFile, type Recording } from '../src/core/recording';
+import { analyzeSet, rowsToCsv, DEFAULT_SET_SETTINGS } from '../src/core/recording-analysis';
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
     calibration: { type: 'string' },
     sigma: { type: 'string' },
-    set: { type: 'string', default: 'rigid' },
-    window: { type: 'string', default: '1500' },
-    'min-motion': { type: 'string', default: '5' },
-    alpha: { type: 'string', default: '0.05' },
-    gap: { type: 'string', default: '5' },
-    'max-cal-motion': { type: 'string', default: '1' },
+    set: { type: 'string', default: DEFAULT_SET_SETTINGS.landmarkSet },
+    window: { type: 'string', default: String(DEFAULT_SET_SETTINGS.windowMs) },
+    'min-motion': { type: 'string', default: String(DEFAULT_SET_SETTINGS.minMotionDeg) },
+    alpha: { type: 'string', default: String(DEFAULT_SET_SETTINGS.alpha) },
+    gap: { type: 'string', default: String(DEFAULT_SET_SETTINGS.calibrationGap) },
+    'max-cal-motion': { type: 'string', default: String(DEFAULT_SET_SETTINGS.maxCalibrationMotionDeg) },
     out: { type: 'string', default: 'analysis-out' },
   },
 });
@@ -41,60 +44,66 @@ function die(msg: string): never {
   console.error(`error: ${msg}`);
   process.exit(1);
 }
-
-const setId = values.set as LandmarkSetId;
-if (!(setId in LANDMARK_SETS)) die(`unknown landmark set "${values.set}"`);
-const indices = LANDMARK_SETS[setId].indices;
 const num = (s: string | undefined, name: string) => {
   const v = Number(s);
   if (!Number.isFinite(v)) die(`--${name} must be a number`);
   return v;
 };
-const opts = {
-  indices,
+
+const setId = values.set as LandmarkSetId;
+if (!(setId in LANDMARK_SETS)) die(`unknown landmark set "${values.set}"`);
+const files = [...(values.calibration ? [values.calibration] : []), ...positionals];
+if (!files.length) die('no recording files given');
+
+const recordings: Recording[] = [];
+for (const f of files) {
+  try {
+    recordings.push(...parseRecordingsFile(readFileSync(f, 'utf8')));
+  } catch (e) {
+    die(`${f}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+const settings = {
+  landmarkSet: setId,
   windowMs: num(values.window, 'window'),
   minMotionDeg: num(values['min-motion'], 'min-motion'),
   alpha: num(values.alpha, 'alpha'),
+  calibrationGap: num(values.gap, 'gap'),
+  maxCalibrationMotionDeg: num(values['max-cal-motion'], 'max-cal-motion'),
+  fixedSigmaPx: values.sigma !== undefined ? num(values.sigma, 'sigma') : null,
 };
-if (!positionals.length) die('no trial recordings given');
+const a = analyzeSet(recordings, settings);
+if (!a.ok) die(a.error);
 
-let sigmaPx: number | null = null;
-let calibrationInfo: unknown = null;
-if (values.sigma !== undefined) {
-  sigmaPx = num(values.sigma, 'sigma');
-  calibrationInfo = { source: 'fixed --sigma', sigmaPx };
-} else if (values.calibration) {
-  const cal = parseRecording(readFileSync(values.calibration, 'utf8'));
-  const c = calibrationFromRecording(cal, indices, num(values.gap, 'gap'), num(values['max-cal-motion'], 'max-cal-motion'));
-  if (c.state !== 'ok' || !c.estimate) die(`calibration failed (${c.state}): ${c.message ?? ''}`);
-  sigmaPx = c.estimate.sigmaPx;
-  calibrationInfo = { source: values.calibration, recordingId: cal.meta.id, sigmaPx, dof: c.estimate.dof, interval95: c.interval95, maxRotationDeg: c.maxRotationDeg };
-} else {
-  die('give --calibration <file> or --sigma <px>');
+const c = a.calibration;
+console.log(
+  c.source === 'fixed'
+    ? `sigma = ${c.sigmaPx} px (fixed)`
+    : `sigma = ${c.sigmaPx.toFixed(3)} px [${c.interval95?.map((v) => v.toFixed(3)).join(', ') ?? '—'}] from ${c.calibrationRecordings} calibration recording(s)` +
+        (c.rejectedForMotion.length ? `; rejected for motion: ${c.rejectedForMotion.join(', ')}` : ''),
+);
+const f3 = (v: number) => v.toFixed(3);
+for (const s of a.summaries) {
+  const rate = s.rejectionRate === null ? '—' : `${s.rejected}/${s.tested} = ${f3(s.rejectionRate)}`;
+  console.log(`  ${s.condition.padEnd(20)} ${s.recordingId.padEnd(28)} ${s.pairs} pairs, rejected ${rate}${s.blockedStage ? `  (${s.blockedStage})` : ''}`);
 }
-
-const rows: PairRow[] = [];
-const summaries = [];
-for (const file of positionals) {
-  const rec = parseRecording(readFileSync(file, 'utf8'));
-  if (rec.meta.role !== 'trial') die(`${file} is a ${rec.meta.role} recording; pass it with --calibration`);
-  const r = analyzeRecording(rec, { ...opts, sigmaPx });
-  rows.push(...r.rows);
-  summaries.push({ file, ...r.summary });
-  const rate = r.summary.rejectionRate === null ? '—' : `${r.summary.rejected}/${r.summary.tested} = ${r.summary.rejectionRate.toFixed(3)} [${r.summary.ci95![0].toFixed(3)}, ${r.summary.ci95![1].toFixed(3)}]`;
-  console.log(`${rec.meta.condition.padEnd(20)} ${r.summary.pairs} pairs, rejected ${rate}${r.summary.blockedStage ? `  (${r.summary.blockedStage})` : ''}`);
+for (const k of a.conditions) {
+  const boot = k.meanRateCi95 ? `[${k.meanRateCi95.map(f3).join(', ')}]` : '(needs ≥ 2 recordings)';
+  console.log(`${k.condition}: ${k.recordings} recordings, mean per-recording rate ${k.meanRecordingRate === null ? '—' : f3(k.meanRecordingRate)} ${boot}`);
 }
 
 mkdirSync(values.out!, { recursive: true });
-writeFileSync(join(values.out!, 'pairs.csv'), rowsToCsv(rows));
+writeFileSync(join(values.out!, 'pairs.csv'), rowsToCsv(a.rows));
 writeFileSync(
   join(values.out!, 'summary.json'),
   JSON.stringify(
     {
-      note: 'Pairs within one recording are not independent (same object, overlapping time). Treat per-recording rates as descriptive; the protocol must define the unit of analysis.',
-      settings: { landmarkSet: setId, ...opts, indices: undefined },
-      calibration: calibrationInfo,
-      recordings: summaries,
+      note: 'Pairs within one recording are not independent. Use meanRateCi95 (bootstrap over recordings) for inference; the pooled Wilson interval is too narrow.',
+      settings: a.settings,
+      calibration: a.calibration,
+      conditions: a.conditions,
+      recordings: a.summaries,
     },
     null,
     2,

@@ -32,6 +32,8 @@ export interface StageResult {
 export interface PairAnalysis {
   n: number;
   motionDeg: number;
+  alpha: number;
+  minMotionDeg: number;
   sigmaPx: number | null;
   homography: Mat3 | null;
   /** Per-landmark squared Sampson error, px^2. */
@@ -96,6 +98,8 @@ export function analyzePair(corr: Correspondences, options: PairOptions, method:
   return {
     n: corr.src.length,
     motionDeg: options.motionDeg,
+    alpha: options.alpha,
+    minMotionDeg: options.minMotionDeg,
     sigmaPx: options.sigmaPx,
     homography,
     errorsSquared,

@@ -30,6 +30,7 @@ Division of work, as agreed with the project lead and changed on 2026-10-08
 | Infrastructure tests, integration tests, browser smoke tests | AI assistant |
 | Research-mode recorder, recording format, offline analysis and synthetic-recording scripts | AI assistant |
 | Report correction list and judge-question list (`docs/`) | AI assistant (questions only, no answers) |
+| Russian and Kazakh interface translations, Experiment wizard (Q4), in-browser Analyze view (2026-10-09) | AI assistant; the Kazakh text is unchecked by a native speaker |
 | Method specification and validation tests (`web/docs/MATH_SPEC.md`, `web/src/method/tests/`) | AI assistant |
 | **Implementation of the method, M1–M6** (`web/src/method/*.ts`) and its explanation (`web/docs/METHOD_EXPLAINED_RU.md`) | **AI assistant**, at the team's request |
 | Derivations D1–D6, the motion threshold M7, understanding and defending the method | Student authors |

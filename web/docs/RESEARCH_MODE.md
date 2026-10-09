@@ -40,7 +40,13 @@ approvals is the researchers' responsibility.
 
 ## 3. Recording workflow (prints held by the researchers)
 
-1. Open **Record**, start the camera.
+**Easiest: the Experiment tab** walks through question Q4 step by step
+(set-up, still calibration, N trials rotating the print, result with a
+bootstrap interval) and downloads everything as one bundle file.
+
+Manual alternative in the **Record** tab:
+
+1. Start the camera.
 2. Subject: “A print or screen held by the researchers”. Enter the protocol
    ID and describe the setup in Notes.
 3. **Calibration**: hold the print still for the set duration (default 3 s).
@@ -50,45 +56,55 @@ approvals is the researchers' responsibility.
 
 ## 4. Analysis
 
+In the browser: open **Analyze**, drop the files (single recordings or
+bundles), check the settings, press *Analyze*. Nothing is uploaded.
+
+From the command line (same code, same numbers):
+
 ```bash
 cd web
-npm run analyze -- --calibration recordings/<calibration>.json \
-                   --set rigid --window 1500 --min-motion 5 --alpha 0.05 \
-                   --out analysis-out recordings/<trial1>.json recordings/<trial2>.json
+npm run analyze -- --set rigid --window 1500 --min-motion 5 --alpha 0.05 \
+                   --out analysis-out recordings/*.json
 ```
 
-- σ is estimated from the calibration file with the method's M5 function.
-  The calibration is rejected if the pose changed by more than
-  `--max-cal-motion` degrees.
+Calibration and trial recordings are recognised by their role; bundles are
+accepted. Use `--sigma <px>` to fix σ instead of using calibration files.
+
+- σ is pooled over all calibration recordings with the method's M5 function.
+  A calibration recording is rejected if the pose changed by more than
+  `--max-cal-motion` degrees during the hold.
 - **Pair rule “non-overlapping windows”**: each trial is cut into consecutive
   windows of `--window` ms; in each window the first frame is paired with the
   frame of largest MediaPipe rotation from it. No frame is used twice. The
   rule looks only at motion.
 - Pairs below `--min-motion` are reported but not counted as tested.
 - Output: `pairs.csv` (one row per pair: motion, n, T, dof, p, outcome) and
-  `summary.json` (settings, σ with its interval, per-recording rejection rate
-  with a Wilson 95 % interval).
+  `summary.json` (settings, σ with its interval, per-recording rates and
+  per-condition summaries).
 
 If a method stage fails (or an implementation substituted via
 `METHOD_IMPL_DIR` is incomplete), the analysis reports which stage, without
 inventing numbers.
 
-**Statistical caution.** Pairs from the same recording are not independent
-(same object, same session, temporally correlated landmark noise). The Wilson
-interval treats them as independent and is therefore too narrow. The protocol
-must define the unit of analysis, for example one pre-specified pair per
-recording, or many recordings per condition with the recording as the unit.
+**Statistical caution and the unit of analysis.** Pairs from the same
+recording are not independent (same object, same session, temporally
+correlated landmark noise), so a Wilson interval over pooled pairs is too
+narrow. The analysis therefore also reports, per condition, the mean of the
+per-recording rejection rates with a **percentile bootstrap interval over
+recordings** (4000 resamples, fixed seed). That interval is the one to use
+for conclusions; it needs at least 2 recordings per condition, and more
+recordings make it narrower.
 
 ## 5. Trying it without real data
 
 ```bash
 npm run make-synthetic -- recordings/synthetic
-npm run analyze -- --calibration recordings/synthetic/*calibration*.json \
-                   --out analysis-out recordings/synthetic/*trial*.json
+npm run analyze -- --out analysis-out recordings/synthetic/*.json
 ```
 
 This writes a still calibration and three trials (flat print, 3D face, curved
-print) from the synthetic scene, in the real file format.
+print) from the synthetic scene, in the real file format. The same files can
+be dropped into the Analyze tab.
 
 ## 6. Suggested first experiment (no participants)
 

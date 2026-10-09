@@ -1,6 +1,7 @@
 import { sensorReport } from '../../capture/sensors';
 import { supportsVideoFrameCallback } from '../../capture/timing';
 import { card, clear, fmt, fmtUnit, h, note, row } from '../dom';
+import { t } from '../i18n';
 import { Plot } from '../plot';
 import { session } from '../session';
 
@@ -18,11 +19,11 @@ function histogram(values: number[], bins: number): { edges: number[]; heights: 
 export function diagnosticsView(): { element: HTMLElement; dispose: () => void } {
   const timingSlot = h('div');
   const cameraSlot = h('div');
-  const intervalPlot = new Plot('Histogram of intervals between processed frames', 180);
-  const inferencePlot = new Plot('Histogram of landmark inference time per frame', 180);
+  const intervalPlot = new Plot(t('diag.cardIntervals'), 180);
+  const inferencePlot = new Plot(t('diag.cardInference'), 180);
 
   const sensors = sensorReport();
-  const yn = (b: boolean) => (b ? 'yes' : 'no');
+  const yn = (b: boolean) => (b ? t('common.yes') : t('common.no'));
   const gl = (() => {
     try {
       return !!document.createElement('canvas').getContext('webgl2');
@@ -32,81 +33,77 @@ export function diagnosticsView(): { element: HTMLElement; dispose: () => void }
   })();
 
   const envCard = card(
-    'Browser and sensors',
-    row('Secure context (camera allowed)', yn(sensors.secureContext), 'measured'),
-    row('requestVideoFrameCallback', yn(supportsVideoFrameCallback(document.createElement('video'))), 'measured', 'Needed for per-frame timestamps from the video pipeline.'),
-    row('WebGL 2 (GPU inference)', yn(gl), 'measured'),
-    row('DeviceMotionEvent', yn(sensors.deviceMotionEvent), 'measured'),
-    row('Motion permission API (iOS)', yn(sensors.motionPermissionApi), 'measured'),
-    row('Generic Sensor Gyroscope', yn(sensors.genericSensorGyroscope), 'measured'),
-    row('Touch device', yn(sensors.touchDevice), 'measured'),
-    row('Logical CPU cores', String(navigator.hardwareConcurrency ?? '—'), 'measured'),
-    note('Phase 3 (gyroscope consistency) will use these sensors. A desktop browser may expose DeviceMotionEvent without having any motion hardware; availability here does not mean data will arrive.'),
-    h('details', {}, h('summary', {}, 'User agent'), h('p', { class: 'mono' }, navigator.userAgent)),
+    t('diag.cardEnv'),
+    row(t('diag.secure'), yn(sensors.secureContext), 'measured'),
+    row(t('diag.rvfc'), yn(supportsVideoFrameCallback(document.createElement('video'))), 'measured', t('diag.rvfcHint')),
+    row(t('diag.webgl'), yn(gl), 'measured'),
+    row(t('diag.dme'), yn(sensors.deviceMotionEvent), 'measured'),
+    row(t('diag.motionPerm'), yn(sensors.motionPermissionApi), 'measured'),
+    row(t('diag.gyro'), yn(sensors.genericSensorGyroscope), 'measured'),
+    row(t('diag.touch'), yn(sensors.touchDevice), 'measured'),
+    row(t('diag.cores'), String(navigator.hardwareConcurrency ?? '—'), 'measured'),
+    note(t('diag.sensorNote')),
+    h('details', {}, h('summary', {}, t('diag.userAgent')), h('p', { class: 'mono' }, navigator.userAgent)),
   );
 
   const element = h(
     'div',
     {},
-    h('h1', {}, 'Diagnostics'),
-    h(
-      'p',
-      { class: 'page-intro' },
-      'Camera and timing quality determine whether the noise model can hold. Dropped frames, irregular intervals and slow inference all change what the landmarks measure. Start the camera in the Live view; this page reads the same session.',
-    ),
+    h('h1', {}, t('diag.title')),
+    h('p', { class: 'page-intro' }, t('diag.intro')),
     h(
       'div',
       { class: 'grid-2' },
-      h('div', { class: 'stack' }, card('Frame timing', timingSlot), card('Interval between processed frames', intervalPlot.element), card('Inference time', inferencePlot.element)),
-      h('div', { class: 'stack' }, card('Camera track', cameraSlot), envCard),
+      h('div', { class: 'stack' }, card(t('diag.cardTiming'), timingSlot), card(t('diag.cardIntervals'), intervalPlot.element), card(t('diag.cardInference'), inferencePlot.element)),
+      h('div', { class: 'stack' }, card(t('diag.cardCamera'), cameraSlot), envCard),
     ),
   );
 
   function update(): void {
-    const t = session.timing.summary();
+    const tm = session.timing.summary();
     clear(timingSlot);
     timingSlot.append(
-      row('Session state', session.state, 'measured'),
-      row('Frames processed', String(t.frames), 'measured'),
-      row('Timestamp source', t.source, 'measured', 'captureTime: camera capture clock; mediaTime: video timeline; animationFrame: page refresh clock (least precise).'),
-      row('Mean interval', fmtUnit(t.meanIntervalMs, 'ms', 1), 'measured'),
-      row('95th percentile interval', fmtUnit(t.p95IntervalMs, 'ms', 1), 'measured'),
-      row('Longest interval', fmtUnit(t.maxIntervalMs, 'ms', 1), 'measured'),
-      row('Presented but not processed', t.skippedFrames === null ? 'unknown' : String(t.skippedFrames), 'measured'),
-      row('Non-increasing timestamps', String(t.nonMonotonic), 'measured'),
-      row('Inference mean / p95', Number.isFinite(t.meanInferenceMs) ? `${fmt(t.meanInferenceMs, 1)} / ${fmt(t.p95InferenceMs, 1)} ms` : '—', 'measured'),
-      row('Face detection rate', t.frames ? `${fmt(100 * t.detectionRate, 1)} %` : '—', 'mediapipe-estimate'),
+      row(t('diag.state'), session.state, 'measured'),
+      row(t('diag.framesProcessed'), String(tm.frames), 'measured'),
+      row(t('diag.tsSource'), tm.source, 'measured', t('diag.tsSourceHint')),
+      row(t('diag.meanInterval'), fmtUnit(tm.meanIntervalMs, 'ms', 1), 'measured'),
+      row(t('diag.p95Interval'), fmtUnit(tm.p95IntervalMs, 'ms', 1), 'measured'),
+      row(t('diag.maxInterval'), fmtUnit(tm.maxIntervalMs, 'ms', 1), 'measured'),
+      row(t('diag.skipped'), tm.skippedFrames === null ? t('diag.unknown') : String(tm.skippedFrames), 'measured'),
+      row(t('diag.nonMonotonic'), String(tm.nonMonotonic), 'measured'),
+      row(t('diag.inferenceMeanP95'), Number.isFinite(tm.meanInferenceMs) ? `${fmt(tm.meanInferenceMs, 1)} / ${fmt(tm.p95InferenceMs, 1)} ms` : '—', 'measured'),
+      row(t('diag.detectionRate'), tm.frames ? `${fmt(100 * tm.detectionRate, 1)} %` : '—', 'mediapipe-estimate'),
     );
     if (session.error) timingSlot.append(note(session.error, 'warn'));
 
     clear(cameraSlot);
     const cam = session.camera;
-    if (!cam) cameraSlot.append(note('Camera not started.'));
+    if (!cam) cameraSlot.append(note(t('diag.cameraNotStarted')));
     else {
       const s = cam.settings;
       cameraSlot.append(
-        row('Device label', cam.label || '(hidden)', 'measured'),
-        row('Resolution', `${s.width ?? '—'} × ${s.height ?? '—'}`, 'measured'),
-        row('Requested frame rate', s.frameRate ? `${fmt(s.frameRate, 1)} fps` : '—', 'measured'),
-        row('Facing mode', s.facingMode ?? '—', 'measured'),
-        row('Resize mode', (s as MediaTrackSettings & { resizeMode?: string }).resizeMode ?? '—', 'measured', 'If the browser crops or scales the camera image, pixel noise is no longer in sensor units.'),
+        row(t('diag.deviceLabel'), cam.label || t('diag.hidden'), 'measured'),
+        row(t('live.rowResolution'), `${s.width ?? '—'} × ${s.height ?? '—'}`, 'measured'),
+        row(t('diag.requestedFps'), s.frameRate ? `${fmt(s.frameRate, 1)} fps` : '—', 'measured'),
+        row(t('diag.facing'), s.facingMode ?? '—', 'measured'),
+        row(t('diag.resize'), (s as MediaTrackSettings & { resizeMode?: string }).resizeMode ?? '—', 'measured', t('diag.resizeHint')),
       );
-      cameraSlot.append(h('details', {}, h('summary', {}, 'Full track settings'), h('pre', { class: 'mono' }, JSON.stringify(s, null, 2))));
+      cameraSlot.append(h('details', {}, h('summary', {}, t('diag.fullSettings')), h('pre', { class: 'mono' }, JSON.stringify(s, null, 2))));
     }
 
     const intervals = session.timing.intervalSamples();
     intervalPlot.render({
       xLabel: 'ms',
-      yLabel: 'frames',
+      yLabel: t('diag.framesAxis'),
       histogram: intervals.length ? { label: 'interval', colorVar: '--series-1', ...histogram(intervals, 24) } : undefined,
-      emptyMessage: 'No frames yet',
+      emptyMessage: t('diag.noFrames'),
     });
     const inference = session.timing.inferenceSamples();
     inferencePlot.render({
       xLabel: 'ms',
-      yLabel: 'frames',
+      yLabel: t('diag.framesAxis'),
       histogram: inference.length ? { label: 'inference', colorVar: '--series-1', ...histogram(inference, 24) } : undefined,
-      emptyMessage: 'No frames yet',
+      emptyMessage: t('diag.noFrames'),
     });
   }
 

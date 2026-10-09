@@ -64,8 +64,10 @@ preceded this work):
 
 ### Phase 2 — research mode
 
-**Status (2026-10-08):** recording, export, offline analysis and synthetic
-recordings are implemented (`docs/RESEARCH_MODE.md`). Recording people stays
+**Status (2026-10-09):** recording, export, offline and in-browser
+analysis (with a bootstrap interval over recordings), an Experiment wizard
+for Q4 and synthetic recordings are implemented (`docs/RESEARCH_MODE.md`).
+The interface is translated into Russian and Kazakh. Recording people stays
 blocked without an approval reference. Not yet built: protocol manager with a
 frozen hash, and APCER/BPCER reporting per PAI species. Both depend on design
 decisions the researchers have not made yet.

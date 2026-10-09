@@ -5,6 +5,13 @@ import { DEFAULT_CONFIG, type AnalysisConfig } from '../core/config';
 import { FrameBuffer, calibrationPairs, correspondences, interocularPx, selectReference, type LandmarkFrame } from '../core/frames';
 import { LANDMARK_SETS } from '../core/landmark-sets';
 import { analyzePair, calibrateNoise, type NoiseCalibration, type PairAnalysis } from '../core/method';
+import type { MessageKey } from './i18n';
+
+/** A message stored as a translation key, so it follows language changes. */
+export interface Msg {
+  key: MessageKey;
+  params?: Record<string, string | number>;
+}
 
 // The single live capture session shared by the Live and Diagnostics views.
 // Everything stays in memory in this tab; nothing is stored or transmitted.
@@ -16,7 +23,7 @@ export interface CalibrationState {
   startedAt: number;
   frames: LandmarkFrame[];
   result: NoiseCalibration | null;
-  message: string;
+  message: Msg | null;
   maxRotationDeg: number;
 }
 
@@ -39,9 +46,9 @@ class LiveSession {
   latestFrame: LandmarkFrame | null = null;
   latestAnalysis: PairAnalysis | null = null;
   latestReference: LandmarkFrame | null = null;
-  analysisNote = '';
+  analysisNote: Msg | null = null;
   history: HistoryPoint[] = [];
-  calibration: CalibrationState = { phase: 'none', startedAt: 0, frames: [], result: null, message: '', maxRotationDeg: 0 };
+  calibration: CalibrationState = { phase: 'none', startedAt: 0, frames: [], result: null, message: null, maxRotationDeg: 0 };
   readonly video: HTMLVideoElement;
 
   private stream: MediaStream | null = null;
@@ -132,14 +139,14 @@ class LiveSession {
     this.config = { ...this.config, ...patch };
     if (setChanged) {
       // sigma was estimated on a different set of landmarks: it no longer applies.
-      this.calibration = { phase: 'none', startedAt: 0, frames: [], result: null, message: 'Landmark set changed; recalibrate.', maxRotationDeg: 0 };
+      this.calibration = { phase: 'none', startedAt: 0, frames: [], result: null, message: { key: 'live.landmarkSetChanged' }, maxRotationDeg: 0 };
     }
     this.history = [];
     this.emit();
   }
 
   startCalibration(): void {
-    this.calibration = { phase: 'collecting', startedAt: performance.now(), frames: [], result: null, message: 'Hold still…', maxRotationDeg: 0 };
+    this.calibration = { phase: 'collecting', startedAt: performance.now(), frames: [], result: null, message: { key: 'live.holdStill' }, maxRotationDeg: 0 };
     this.emit();
   }
 
@@ -185,17 +192,17 @@ class LiveSession {
     c.maxRotationDeg = built.maxRotationDeg;
     if (built.maxRotationDeg > this.config.maxCalibrationMotionDeg) {
       c.phase = 'rejected';
-      c.message = `Rejected: the pose changed by ${built.maxRotationDeg.toFixed(1)}° during the hold (limit ${this.config.maxCalibrationMotionDeg}°). Hold still and retry.`;
+      c.message = { key: 'live.calibrationMotion', params: { motion: built.maxRotationDeg.toFixed(1), limit: this.config.maxCalibrationMotionDeg } };
       return;
     }
     const result = calibrateNoise(built.pairs);
     c.result = result;
     if (result.state === 'ok') {
       c.phase = 'done';
-      c.message = `${built.frames} frames, ${built.pairs.length} pairs.`;
+      c.message = { key: 'live.calibrationOk', params: { frames: built.frames, pairs: built.pairs.length } };
     } else {
       c.phase = 'rejected';
-      c.message = result.state === 'not-implemented' ? 'Noise estimator (task M5) is not implemented yet.' : `Calibration failed: ${result.message}`;
+      c.message = { key: 'live.calibrationFailed', params: { message: result.message ?? result.state } };
     }
     this.history = [];
   }
@@ -204,14 +211,14 @@ class LiveSession {
     const current = this.buffer.latest();
     if (!current || this.latestFrame === null) {
       this.latestAnalysis = null;
-      this.analysisNote = 'No face detected in the current frame.';
+      this.analysisNote = { key: 'live.noFace' };
       return;
     }
     const window = this.buffer.within(this.config.windowMs);
     const sel = selectReference(window, current);
     if (!sel) {
       this.latestAnalysis = null;
-      this.analysisNote = 'Waiting for frames with a head-pose estimate.';
+      this.analysisNote = { key: 'live.noPose' };
       return;
     }
     this.latestReference = sel.ref;
@@ -223,7 +230,7 @@ class LiveSession {
       motionDeg: sel.motionDeg,
     });
     this.latestAnalysis = a;
-    this.analysisNote = '';
+    this.analysisNote = null;
     this.history.push({ t: current.timestampMs, tOverDof: a.stat ? a.stat.T / a.stat.dof : null, motionDeg: sel.motionDeg });
     if (this.history.length > 300) this.history.shift();
   }

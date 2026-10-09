@@ -3,7 +3,9 @@ import { rotationFromAngles } from './geometry3d';
 import { analyzePair, calibrateNoise, DEFAULT_METHOD, type NoiseCalibration, type PlanarityMethod } from './method';
 import { framesOf, frameToRecorded, RECORDING_FORMAT, RECORDING_VERSION, type Recording, type RecordingMeta } from './recording';
 import { Rng } from './rng';
-import { wilsonInterval } from './stats';
+import { bootstrapMeanInterval, wilsonInterval } from './stats';
+import { LANDMARK_SETS, type LandmarkSetId } from './landmark-sets';
+import type { Correspondences } from './types';
 import { addNoise, DEFAULT_INTRINSICS, makeObject, projectObject, type ObjectKind } from './synthetic';
 
 // Offline analysis of recordings. Used by scripts/analyze-recordings.ts and
@@ -225,4 +227,129 @@ export function syntheticRecording(spec: SyntheticRecordingSpec): Recording {
     framesWithoutFace: 0,
   };
   return { meta, frames: frames.map((f) => frameToRecorded(f, 0)) };
+}
+
+export interface SetAnalysisSettings {
+  landmarkSet: LandmarkSetId;
+  windowMs: number;
+  minMotionDeg: number;
+  alpha: number;
+  calibrationGap: number;
+  maxCalibrationMotionDeg: number;
+  /** Use this sigma instead of the calibration recordings. */
+  fixedSigmaPx?: number | null;
+}
+
+export const DEFAULT_SET_SETTINGS: SetAnalysisSettings = {
+  landmarkSet: 'rigid',
+  windowMs: 1500,
+  minMotionDeg: 5,
+  alpha: 0.05,
+  calibrationGap: 5,
+  maxCalibrationMotionDeg: 1,
+  fixedSigmaPx: null,
+};
+
+export interface ConditionSummary {
+  condition: string;
+  recordings: number;
+  tested: number;
+  rejected: number;
+  /** Pairs pooled across recordings. The Wilson interval treats pairs as independent, so it is too narrow. */
+  pooledRate: number | null;
+  pooledCi95: [number, number] | null;
+  /** One rate per recording that had at least one tested pair. */
+  recordingRates: number[];
+  meanRecordingRate: number | null;
+  /** Bootstrap over recordings: the recording is the unit of analysis. Null with fewer than 2 recordings. */
+  meanRateCi95: [number, number] | null;
+}
+
+export interface CalibrationResult {
+  source: 'recordings' | 'fixed';
+  sigmaPx: number;
+  dof: number | null;
+  interval95: [number, number] | null;
+  calibrationRecordings: number;
+  rejectedForMotion: string[];
+}
+
+export type SetAnalysis =
+  | {
+      ok: true;
+      settings: SetAnalysisSettings;
+      calibration: CalibrationResult;
+      summaries: RecordingSummary[];
+      rows: PairRow[];
+      conditions: ConditionSummary[];
+    }
+  | { ok: false; error: string };
+
+/**
+ * Analyse a whole set of recordings: sigma from all calibration recordings
+ * (pooled), every trial with the pair rule, then per-condition summaries.
+ */
+export function analyzeSet(recordings: readonly Recording[], settings: SetAnalysisSettings, method: PlanarityMethod = DEFAULT_METHOD): SetAnalysis {
+  const indices = LANDMARK_SETS[settings.landmarkSet].indices;
+  const trials = recordings.filter((r) => r.meta.role === 'trial');
+  const cals = recordings.filter((r) => r.meta.role === 'calibration');
+  if (!trials.length) return { ok: false, error: 'no trial recordings' };
+
+  let calibration: CalibrationResult;
+  if (settings.fixedSigmaPx && settings.fixedSigmaPx > 0) {
+    calibration = { source: 'fixed', sigmaPx: settings.fixedSigmaPx, dof: null, interval95: null, calibrationRecordings: 0, rejectedForMotion: [] };
+  } else {
+    if (!cals.length) return { ok: false, error: 'no calibration recording (hold-still) and no fixed sigma' };
+    const pairs: Correspondences[] = [];
+    const rejectedForMotion: string[] = [];
+    for (const cal of cals) {
+      const built = calibrationPairs(framesOf(cal), indices, settings.calibrationGap);
+      if (built.maxRotationDeg > settings.maxCalibrationMotionDeg) rejectedForMotion.push(cal.meta.id);
+      else pairs.push(...built.pairs);
+    }
+    if (!pairs.length) return { ok: false, error: 'every calibration recording moved too much during the hold' };
+    const c = calibrateNoise(pairs, method);
+    if (c.state !== 'ok' || !c.estimate) return { ok: false, error: `calibration failed: ${c.message ?? c.state}` };
+    calibration = {
+      source: 'recordings',
+      sigmaPx: c.estimate.sigmaPx,
+      dof: c.estimate.dof,
+      interval95: c.interval95,
+      calibrationRecordings: cals.length - rejectedForMotion.length,
+      rejectedForMotion,
+    };
+  }
+
+  const opts = { indices, windowMs: settings.windowMs, minMotionDeg: settings.minMotionDeg, alpha: settings.alpha, sigmaPx: calibration.sigmaPx };
+  const rows: PairRow[] = [];
+  const summaries: RecordingSummary[] = [];
+  for (const rec of trials) {
+    const r = analyzeRecording(rec, opts, method);
+    rows.push(...r.rows);
+    summaries.push(r.summary);
+  }
+
+  const byCondition = new Map<string, RecordingSummary[]>();
+  for (const s of summaries) {
+    if (!byCondition.has(s.condition)) byCondition.set(s.condition, []);
+    byCondition.get(s.condition)!.push(s);
+  }
+  const conditions: ConditionSummary[] = [...byCondition.entries()].map(([condition, ss], k) => {
+    const tested = ss.reduce((a, s) => a + s.tested, 0);
+    const rejected = ss.reduce((a, s) => a + s.rejected, 0);
+    const recordingRates = ss.filter((s) => s.tested > 0).map((s) => s.rejected / s.tested);
+    const mean = recordingRates.length ? recordingRates.reduce((a, b) => a + b, 0) / recordingRates.length : null;
+    return {
+      condition,
+      recordings: ss.length,
+      tested,
+      rejected,
+      pooledRate: tested ? rejected / tested : null,
+      pooledCi95: tested ? wilsonInterval(rejected, tested) : null,
+      recordingRates,
+      meanRecordingRate: mean,
+      meanRateCi95: bootstrapMeanInterval(recordingRates, 20261009 + k),
+    };
+  });
+  return { ok: true, settings, calibration, summaries, rows, conditions };
 }

@@ -91,3 +91,17 @@ describe('descriptive statistics', () => {
     expect(sampleVariance([1, 2, 3, 4])).toBeCloseTo(5 / 3, 12);
   });
 });
+
+describe('bootstrapMeanInterval', () => {
+  it('is reproducible, brackets the mean, and is null for a single value', async () => {
+    const { bootstrapMeanInterval } = await import('../stats');
+    const v = [0.1, 0.0, 0.05, 0.2, 0.0, 0.1, 0.05, 0.15];
+    const a = bootstrapMeanInterval(v, 1)!;
+    expect(bootstrapMeanInterval(v, 1)).toEqual(a);
+    const m = v.reduce((x, y) => x + y, 0) / v.length;
+    expect(a[0]).toBeLessThan(m);
+    expect(a[1]).toBeGreaterThan(m);
+    expect(bootstrapMeanInterval([0.3], 1)).toBeNull();
+    expect(bootstrapMeanInterval([0, 0, 0], 1)).toEqual([0, 0]);
+  });
+});

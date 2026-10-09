@@ -1,4 +1,5 @@
-import { PROVENANCE_HELP, PROVENANCE_LABEL, type Provenance } from '../core/provenance';
+import type { Provenance } from '../core/provenance';
+import { t, type MessageKey } from './i18n';
 
 type Attrs = Record<string, string | number | boolean | undefined | null | EventListener>;
 type Child = Node | string | number | null | undefined | false;
@@ -32,7 +33,7 @@ export function clear(el: Element): void {
 }
 
 export function badge(p: Provenance): HTMLElement {
-  return h('span', { class: `badge badge-${p}`, title: PROVENANCE_HELP[p] }, PROVENANCE_LABEL[p]);
+  return h('span', { class: `badge badge-${p}`, title: t(`provHelp.${p}` as MessageKey) }, t(`prov.${p}` as MessageKey));
 }
 
 /** Format a number for display; em dash for missing values. */

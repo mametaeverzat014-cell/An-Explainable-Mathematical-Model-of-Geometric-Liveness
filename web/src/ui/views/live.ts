@@ -1,7 +1,7 @@
-import { CONFIG_NOTES } from '../../core/config';
 import { LANDMARK_SETS, type LandmarkSetId } from '../../core/landmark-sets';
 import { chiSquarePdf, chiSquareQuantile } from '../../core/stats';
 import { card, clear, field, fmt, fmtP, fmtUnit, h, note, numberInput, row, select } from '../dom';
+import { t, type MessageKey } from '../i18n';
 import { outcomeView } from '../outcome';
 import { Plot } from '../plot';
 import { session } from '../session';
@@ -17,12 +17,12 @@ export function liveView(): { element: HTMLElement; dispose: () => void } {
   const placeholder = h(
     'div',
     { class: 'stage-placeholder' },
-    'The camera is off. Video is processed only inside this browser tab; nothing is uploaded or stored.',
+    t('live.cameraOff'),
   );
   const stage = h('div', { class: 'stage mirrored' }, session.video, overlay, placeholder);
 
-  const startBtn = h('button', { class: 'btn', type: 'button' }, 'Start camera') as HTMLButtonElement;
-  const stopBtn = h('button', { class: 'btn btn-secondary', type: 'button' }, 'Stop') as HTMLButtonElement;
+  const startBtn = h('button', { class: 'btn', type: 'button' }, t('common.startCamera')) as HTMLButtonElement;
+  const stopBtn = h('button', { class: 'btn btn-secondary', type: 'button' }, t('common.stop')) as HTMLButtonElement;
   startBtn.addEventListener('click', () => void session.start(delegate, facing));
   stopBtn.addEventListener('click', () => session.stop());
 
@@ -31,33 +31,33 @@ export function liveView(): { element: HTMLElement; dispose: () => void } {
     { class: 'controls' },
     h('div', { class: 'btn-row' }, startBtn, stopBtn),
     field(
-      'Camera',
+      t('live.camera'),
       select(
         [
-          { value: 'user', label: 'Front' },
-          { value: 'environment', label: 'Rear' },
+          { value: 'user', label: t('live.front') },
+          { value: 'environment', label: t('live.rear') },
         ],
         facing,
         (v) => (facing = v),
       ),
     ),
     field(
-      'Inference',
+      t('live.inference'),
       select(
         [
-          { value: 'GPU', label: 'GPU (falls back to CPU)' },
-          { value: 'CPU', label: 'CPU' },
+          { value: 'GPU', label: t('live.gpu') },
+          { value: 'CPU', label: t('live.cpu') },
         ],
         delegate,
         (v) => (delegate = v),
       ),
     ),
     field(
-      'Display',
+      t('live.display'),
       select(
         [
-          { value: 'mirror', label: 'Mirrored' },
-          { value: 'raw', label: 'Not mirrored' },
+          { value: 'mirror', label: t('live.mirrored') },
+          { value: 'raw', label: t('live.notMirrored') },
         ],
         'mirror',
         (v) => {
@@ -65,63 +65,58 @@ export function liveView(): { element: HTMLElement; dispose: () => void } {
           stage.classList.toggle('mirrored', mirrored);
         },
       ),
-      'Display only; analysis always uses unmirrored coordinates.',
+      t('live.displayHint'),
     ),
   );
 
   const overlayLegend = h(
     'div',
     { class: 'legend-inline' },
-    h('span', {}, h('span', { class: 'dot', style: 'background:var(--overlay-point)' }), 'landmarks used by the test'),
-    h('span', {}, h('span', { class: 'dot', style: 'background:var(--overlay-vector)' }), `residual  dst − H·src  (×${VECTOR_GAIN})`),
+    h('span', {}, h('span', { class: 'dot', style: 'background:var(--overlay-point)' }), t('live.legendPoints')),
+    h('span', {}, h('span', { class: 'dot', style: 'background:var(--overlay-vector)' }), t('live.legendVectors', { gain: VECTOR_GAIN })),
   );
 
-  const historyPlot = new Plot('Test statistic T divided by its degrees of freedom over time', 180);
-  const residualPlot = new Plot('Histogram of per-landmark normalised squared residuals with chi-square reference', 180);
+  const historyPlot = new Plot(t('live.cardHistory'), 180);
+  const residualPlot = new Plot(t('live.cardResiduals'), 180);
 
   const outcomeSlot = h('div');
   const testSlot = h('div');
   const noiseSlot = h('div');
   const measureSlot = h('div');
 
-  const calibBtn = h('button', { class: 'btn btn-secondary', type: 'button' }, 'Calibrate noise floor') as HTMLButtonElement;
+  const calibBtn = h('button', { class: 'btn btn-secondary', type: 'button' }, t('live.calibrate')) as HTMLButtonElement;
   calibBtn.addEventListener('click', () => session.startCalibration());
 
   const settings = card(
-    'Test settings',
+    t('live.cardSettings'),
     h(
       'div',
       { class: 'controls' },
       field(
-        'Landmark set',
+        t('live.landmarkSet'),
         select(
-          (Object.keys(LANDMARK_SETS) as LandmarkSetId[]).map((k) => ({ value: k, label: LANDMARK_SETS[k].label })),
+          (Object.keys(LANDMARK_SETS) as LandmarkSetId[]).map((k) => ({ value: k, label: t(`set.${k}.label` as MessageKey) })),
           session.config.landmarkSet,
           (v) => session.setConfig({ landmarkSet: v }),
         ),
       ),
       field('α', numberInput(session.config.alpha, (v) => session.setConfig({ alpha: v }), { min: 0.001, max: 0.5, step: 0.01 })),
       field(
-        'Min. motion (°)',
+        t('live.minMotion'),
         numberInput(session.config.minMotionDeg, (v) => session.setConfig({ minMotionDeg: v }), { min: 0, max: 45, step: 0.5 }),
-        'placeholder',
+        t('live.placeholder'),
       ),
-      field('Window (ms)', numberInput(session.config.windowMs, (v) => session.setConfig({ windowMs: v }), { min: 200, max: 5000, step: 100 })),
+      field(t('live.window'), numberInput(session.config.windowMs, (v) => session.setConfig({ windowMs: v }), { min: 200, max: 5000, step: 100 })),
     ),
-    note(`Minimum motion: ${CONFIG_NOTES.minMotionDeg.note}`, 'warn'),
-    h('p', { class: 'outcome-reason' }, LANDMARK_SETS[session.config.landmarkSet].description),
+    note(t('live.minMotionNote'), 'warn'),
+    h('p', { class: 'outcome-reason' }, t(`set.${session.config.landmarkSet}.desc` as MessageKey)),
   );
 
   const element = h(
     'div',
     {},
-    h('h1', {}, 'Live planarity test'),
-    h(
-      'p',
-      { class: 'page-intro' },
-      'Tests whether the landmarks of the presented face move like points on a single plane between two frames. ' +
-        'It is a test of planarity, not a liveness verdict: a flat photo should be "consistent with a planar surface"; a real head that turns should produce evidence against planarity — but so can a curved print, a replayed video or a changing facial expression.',
-    ),
+    h('h1', {}, t('live.title')),
+    h('p', { class: 'page-intro' }, t('live.intro')),
     h(
       'div',
       { class: 'grid-live' },
@@ -129,16 +124,16 @@ export function liveView(): { element: HTMLElement; dispose: () => void } {
         'div',
         { class: 'stack' },
         h('section', { class: 'card' }, stage, overlayLegend, h('div', { style: 'margin-top:10px' }, controls)),
-        card('Statistic over time (T / dof)', historyPlot.element),
-        card('Per-landmark residuals vs. the noise model', residualPlot.element),
+        card(t('live.cardHistory'), historyPlot.element),
+        card(t('live.cardResiduals'), residualPlot.element),
       ),
       h(
         'div',
         { class: 'stack' },
-        card('Outcome', outcomeSlot),
-        card('Planarity test', testSlot),
-        card('Noise floor (σ)', noiseSlot, h('div', { class: 'btn-row', style: 'margin-top:8px' }, calibBtn)),
-        card('Measurements', measureSlot),
+        card(t('live.cardOutcome'), outcomeSlot),
+        card(t('live.cardTest'), testSlot),
+        card(t('live.cardNoise'), noiseSlot, h('div', { class: 'btn-row', style: 'margin-top:8px' }, calibBtn)),
+        card(t('live.cardMeasure'), measureSlot),
         settings,
       ),
     ),
@@ -151,32 +146,33 @@ export function liveView(): { element: HTMLElement; dispose: () => void } {
     stopBtn.disabled = !running;
     calibBtn.disabled = !running || s.calibration.phase === 'collecting';
     placeholder.hidden = running;
-    if (s.state === 'starting') placeholder.textContent = 'Starting camera and loading the face landmark model…';
+    if (s.state === 'starting') placeholder.textContent = t('live.starting');
     if (s.state === 'error') {
       placeholder.hidden = false;
-      placeholder.textContent = `Could not start: ${s.error}`;
+      placeholder.textContent = t('live.couldNotStart', { error: s.error });
     }
 
     const a = s.latestAnalysis;
     clear(outcomeSlot);
-    outcomeSlot.append(outcomeView(running ? a : null, running ? s.analysisNote || 'Waiting…' : 'Start the camera to begin.'));
+    const noteText = s.analysisNote ? t(s.analysisNote.key, s.analysisNote.params) : t('live.waiting');
+    outcomeSlot.append(outcomeView(running ? a : null, running ? noteText : t('live.startToBegin')));
 
     clear(testSlot);
     const dof = a?.stat?.dof ?? (a ? 2 * a.n - 8 : null);
     const crit = dof && dof > 0 ? chiSquareQuantile(1 - s.config.alpha, dof) : null;
     testSlot.append(
-      row('Landmarks n', a ? String(a.n) : '—', 'configuration'),
-      row('Rotation between frames', a ? `${fmt(a.motionDeg, 1)}°` : '—', 'mediapipe-estimate', 'From MediaPipe’s facial transformation matrix; the reference frame is the one with the largest rotation in the window.'),
-      row('Motion gate', a ? (a.motionDeg >= s.config.minMotionDeg ? 'passed' : `below ${s.config.minMotionDeg}°`) : '—', 'configuration'),
-      row('T = Σe²/σ²', fmt(a?.stat?.T, 1), a?.stat ? 'method-output' : stageProvenance(a, 'statistic')),
-      row('Degrees of freedom 2n − 8', dof !== null ? String(dof) : '—', 'method-output'),
-      row(`Critical value χ²(1 − α)`, fmt(crit, 1), 'method-output'),
-      row('p-value', fmtP(a?.stat?.pValue), a?.stat ? 'method-output' : stageProvenance(a, 'statistic')),
+      row(t('live.rowN'), a ? String(a.n) : '—', 'configuration'),
+      row(t('live.rowRotation'), a ? `${fmt(a.motionDeg, 1)}°` : '—', 'mediapipe-estimate', t('live.rowRotationHint')),
+      row(t('live.rowGate'), a ? (a.motionDeg >= s.config.minMotionDeg ? t('live.gatePassed') : t('live.gateBelow', { min: s.config.minMotionDeg })) : '—', 'configuration'),
+      row(t('live.rowT'), fmt(a?.stat?.T, 1), a?.stat ? 'method-output' : stageProvenance(a, 'statistic')),
+      row(t('live.rowDof'), dof !== null ? String(dof) : '—', 'method-output'),
+      row(t('live.rowCrit'), fmt(crit, 1), 'method-output'),
+      row(t('live.rowP'), fmtP(a?.stat?.pValue), a?.stat ? 'method-output' : stageProvenance(a, 'statistic')),
     );
     const blocked = a?.stages.filter((st) => st.state !== 'ok') ?? [];
     if (blocked.length) {
       testSlot.append(
-        h('details', {}, h('summary', {}, 'Stage status'), ...blocked.map((st) => h('div', { class: 'outcome-reason' }, `${st.stage}: ${st.state}${st.message ? ` — ${st.message}` : ''}`))),
+        h('details', {}, h('summary', {}, t('live.stageStatus')), ...blocked.map((st) => h('div', { class: 'outcome-reason' }, `${st.stage}: ${st.state}${st.message ? ` — ${st.message}` : ''}`))),
       );
     }
 
@@ -184,34 +180,30 @@ export function liveView(): { element: HTMLElement; dispose: () => void } {
     const c = s.calibration;
     const est = c.result?.estimate;
     noiseSlot.append(
-      row('σ (px per coordinate)', c.phase === 'done' ? fmt(est?.sigmaPx, 3) : '—', 'method-output'),
-      row('95 % interval', c.result?.interval95 ? `${fmt(c.result.interval95[0], 3)} – ${fmt(c.result.interval95[1], 3)}` : '—', 'method-output'),
-      row('Degrees of freedom', est ? String(est.dof) : '—', 'method-output'),
-      row('Pose change during hold', c.phase === 'none' ? '—' : `${fmt(c.maxRotationDeg, 2)}°`, 'mediapipe-estimate'),
+      row(t('live.rowSigma'), c.phase === 'done' ? fmt(est?.sigmaPx, 3) : '—', 'method-output'),
+      row(t('live.rowInterval'), c.result?.interval95 ? `${fmt(c.result.interval95[0], 3)} – ${fmt(c.result.interval95[1], 3)}` : '—', 'method-output'),
+      row(t('live.rowSigmaDof'), est ? String(est.dof) : '—', 'method-output'),
+      row(t('live.rowHoldMotion'), c.phase === 'none' ? '—' : `${fmt(c.maxRotationDeg, 2)}°`, 'mediapipe-estimate'),
     );
-    if (c.phase === 'collecting') noiseSlot.append(note('Hold the presented object (face or photo) still…'));
-    else if (c.phase === 'none') noiseSlot.append(note('Not calibrated. Without σ the test cannot run: the outcome stays inconclusive.', 'warn'));
-    else if (c.message) noiseSlot.append(note(c.message, c.phase === 'rejected' ? 'warn' : 'info'));
-    noiseSlot.append(
-      note(
-        'Assumes landmark errors are independent, Gaussian and equal in both axes, and that noise during motion equals noise during the hold. These assumptions are open questions Q1 and Q3 in MATH_SPEC.md.',
-      ),
-    );
+    if (c.phase === 'collecting') noiseSlot.append(note(t('live.holdStill')));
+    else if (c.phase === 'none') noiseSlot.append(note(c.message ? t(c.message.key, c.message.params) : t('live.notCalibrated'), 'warn'));
+    else if (c.message) noiseSlot.append(note(t(c.message.key, c.message.params), c.phase === 'rejected' ? 'warn' : 'info'));
+    noiseSlot.append(note(t('live.noiseAssumption')));
 
     clear(measureSlot);
-    const t = s.timing.summary();
+    const tm = s.timing.summary();
     const settings = s.camera?.settings;
     measureSlot.append(
-      row('Frame rate', t.frames > 1 ? `${fmt(t.fps, 1)} fps` : '—', 'measured'),
-      row('Resolution', settings?.width ? `${settings.width} × ${settings.height}` : '—', 'measured'),
-      row('Inference time (mean)', fmtUnit(t.meanInferenceMs, 'ms', 1), 'measured'),
-      row('Face detected', t.frames ? `${fmt(100 * t.detectionRate, 0)} % of frames` : '—', 'mediapipe-estimate'),
-      row('Face size (outer eye corners)', fmtUnit(s.faceSizePx(), 'px', 0), 'mediapipe-estimate'),
-      row('Inference backend', s.delegate ?? '—', 'measured'),
+      row(t('live.rowFps'), tm.frames > 1 ? `${fmt(tm.fps, 1)} fps` : '—', 'measured'),
+      row(t('live.rowResolution'), settings?.width ? `${settings.width} × ${settings.height}` : '—', 'measured'),
+      row(t('live.rowInferenceMean'), fmtUnit(tm.meanInferenceMs, 'ms', 1), 'measured'),
+      row(t('live.rowDetected'), tm.frames ? t('live.detectedValue', { pct: fmt(100 * tm.detectionRate, 0) }) : '—', 'mediapipe-estimate'),
+      row(t('live.rowFaceSize'), fmtUnit(s.faceSizePx(), 'px', 0), 'mediapipe-estimate'),
+      row(t('live.rowBackend'), s.delegate ?? '—', 'measured'),
     );
 
     historyPlot.render({
-      xLabel: 'time (s, relative)',
+      xLabel: t('live.histX'),
       yLabel: 'T / dof',
       series: [
         {
@@ -222,8 +214,8 @@ export function liveView(): { element: HTMLElement; dispose: () => void } {
           points: historyPoints(),
         },
       ],
-      refLines: crit && dof ? [{ y: crit / dof, label: `critical (α = ${s.config.alpha})` }, { y: 1, label: 'expected under H₀' }] : [],
-      emptyMessage: s.sigmaPx === null ? 'Calibrate the noise floor to see the statistic' : 'No statistic yet',
+      refLines: crit && dof ? [{ y: crit / dof, label: t('live.histCritical', { alpha: s.config.alpha }) }, { y: 1, label: t('live.histExpected') }] : [],
+      emptyMessage: s.sigmaPx === null ? t('live.histEmptyNoSigma') : t('live.histEmpty'),
     });
 
     const sigma = s.sigmaPx;
@@ -236,13 +228,13 @@ export function liveView(): { element: HTMLElement; dispose: () => void } {
       for (const v of z) counts[Math.min(bins - 1, Math.floor((v / maxZ) * bins))]++;
       const width = maxZ / bins;
       residualPlot.render({
-        xLabel: 'e² / σ² per landmark',
-        yLabel: 'density',
-        histogram: { label: 'observed', colorVar: '--series-1', edges, heights: counts.map((n) => n / (z.length * width)) },
-        curves: [{ label: 'χ²(2) reference (approx.)', colorVar: '--series-2', dashed: true, points: edges.map((x) => ({ x: Math.max(x, 0.02), y: chiSquarePdf(Math.max(x, 0.02), 2) })) }],
+        xLabel: t('live.residX'),
+        yLabel: t('live.residY'),
+        histogram: { label: t('live.residObserved'), colorVar: '--series-1', edges, heights: counts.map((n) => n / (z.length * width)) },
+        curves: [{ label: t('live.residReference'), colorVar: '--series-2', dashed: true, points: edges.map((x) => ({ x: Math.max(x, 0.02), y: chiSquarePdf(Math.max(x, 0.02), 2) })) }],
       });
     } else {
-      residualPlot.render({ xLabel: 'e² / σ²', yLabel: 'density', emptyMessage: sigma === null ? 'Needs σ (calibration) and residuals (tasks M1, M2)' : 'Residuals unavailable (tasks M1, M2)' });
+      residualPlot.render({ xLabel: t('live.residX'), yLabel: t('live.residY'), emptyMessage: sigma === null ? t('live.residEmptyNoSigma') : t('live.residEmpty') });
     }
   }
 

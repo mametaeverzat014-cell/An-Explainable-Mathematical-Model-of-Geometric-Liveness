@@ -5,13 +5,14 @@ import { runSweep, type SweepPoint } from '../../core/montecarlo';
 import { Rng } from '../../core/rng';
 import { DEFAULT_INTRINSICS, makeObject, syntheticPair, type ObjectKind } from '../../core/synthetic';
 import { card, clear, field, fmt, fmtP, h, note, numberInput, rangeInput, row, select, table } from '../dom';
+import { t, type MessageKey } from '../i18n';
 import { outcomeView } from '../outcome';
 import { Plot } from '../plot';
 
-const KIND_LABEL: Record<ObjectKind, string> = {
-  face3d: '3D face (canonical model)',
-  plane: 'Flat print',
-  cylinder: 'Curved print (R = 10 cm)',
+const KIND_LABEL: Record<ObjectKind, () => string> = {
+  face3d: () => t('syn.kind.face3d'),
+  plane: () => t('syn.kind.plane'),
+  cylinder: () => t('syn.kind.cylinder'),
 };
 const KIND_STYLE: Record<ObjectKind, { colorVar: string; marker: 'circle' | 'square' | 'triangle' }> = {
   face3d: { colorVar: '--series-1', marker: 'circle' },
@@ -30,13 +31,13 @@ export function syntheticView(): { element: HTMLElement; dispose: () => void } {
   const pairControls = h(
     'div',
     { class: 'controls' },
-    field('Object', select(KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] })), single.kind, (v) => ((single.kind = v), renderPair()))),
-    rangeInput(single.yaw, -25, 25, 0.5, (v) => ((single.yaw = v), renderPair()), 'Yaw change (°)'),
-    rangeInput(single.pitch, -25, 25, 0.5, (v) => ((single.pitch = v), renderPair()), 'Pitch change (°)'),
-    rangeInput(single.sigma, 0, 5, 0.1, (v) => ((single.sigma = v), renderPair()), 'Noise σ (px)'),
-    rangeInput(single.distance, 25, 200, 5, (v) => ((single.distance = v), renderPair()), 'Distance (cm)'),
-    field('Landmarks', select((Object.keys(LANDMARK_SETS) as LandmarkSetId[]).map((k) => ({ value: k, label: LANDMARK_SETS[k].label })), single.set, (v) => ((single.set = v), renderPair()))),
-    field('Seed', numberInput(single.seed, (v) => ((single.seed = Math.round(v)), renderPair()), { min: 0, step: 1 })),
+    field(t('syn.object'), select(KINDS.map((k) => ({ value: k, label: KIND_LABEL[k]() })), single.kind, (v) => ((single.kind = v), renderPair()))),
+    rangeInput(single.yaw, -25, 25, 0.5, (v) => ((single.yaw = v), renderPair()), t('syn.yaw')),
+    rangeInput(single.pitch, -25, 25, 0.5, (v) => ((single.pitch = v), renderPair()), t('syn.pitch')),
+    rangeInput(single.sigma, 0, 5, 0.1, (v) => ((single.sigma = v), renderPair()), t('syn.noise')),
+    rangeInput(single.distance, 25, 200, 5, (v) => ((single.distance = v), renderPair()), t('syn.distance')),
+    field(t('syn.landmarks'), select((Object.keys(LANDMARK_SETS) as LandmarkSetId[]).map((k) => ({ value: k, label: t(`set.${k}.label` as MessageKey) })), single.set, (v) => ((single.set = v), renderPair()))),
+    field(t('syn.seed'), numberInput(single.seed, (v) => ((single.seed = Math.round(v)), renderPair()), { min: 0, step: 1 })),
   );
 
   function renderPair(): void {
@@ -114,29 +115,29 @@ export function syntheticView(): { element: HTMLElement; dispose: () => void } {
     clear(pairReadout);
     pairReadout.append(
       outcomeView(a, ''),
-      row('Rotation (true)', `${fmt(motion, 1)}°`, 'synthetic-truth'),
-      row('Noise σ (true, known)', `${fmt(single.sigma, 2)} px`, 'synthetic-truth'),
-      row('Landmarks n / dof', `${a.n} / ${2 * a.n - 8}`, 'configuration'),
+      row(t('syn.rowRotation'), `${fmt(motion, 1)}°`, 'synthetic-truth'),
+      row(t('syn.rowSigma'), `${fmt(single.sigma, 2)} px`, 'synthetic-truth'),
+      row(t('syn.rowNdof'), `${a.n} / ${2 * a.n - 8}`, 'configuration'),
       row('T', fmt(a.stat?.T, 2), a.stat ? 'method-output' : 'not-implemented'),
-      row('p-value', fmtP(a.stat?.pValue), a.stat ? 'method-output' : 'not-implemented'),
+      row(t('live.rowP'), fmtP(a.stat?.pValue), a.stat ? 'method-output' : 'not-implemented'),
     );
-    if (single.sigma === 0) pairReadout.append(note('σ = 0: the statistic is undefined (division by zero). Use a small positive σ.', 'warn'));
+    if (single.sigma === 0) pairReadout.append(note(t('syn.sigmaZero'), 'warn'));
   }
 
   const pairCard = card(
-    'Single frame pair',
-    h('p', { class: 'outcome-reason' }, 'Hollow circles: frame 1. Filled: frame 2. Orange: residual dst − H·src (×10) — the part of the motion a single plane cannot explain. The motion gate is off here.'),
+    t('syn.cardPair'),
+    h('p', { class: 'outcome-reason' }, t('syn.pairHelp')),
     pairControls,
     h('div', { class: 'grid-2' }, pairCanvas, pairReadout),
   );
 
   // ---------------- Monte-Carlo sweep ----------------
   const sweep = { axis: 'yaw' as 'yaw' | 'pitch', sigma: 1, distance: 50, set: 'rigid' as LandmarkSetId, trials: 200, alpha: 0.05, seed: 2024, rotations: '0, 1, 2, 3, 5, 8, 12' };
-  const runBtn = h('button', { class: 'btn', type: 'button' }, 'Run sweep') as HTMLButtonElement;
-  const stopBtn = h('button', { class: 'btn btn-secondary', type: 'button', disabled: true }, 'Stop') as HTMLButtonElement;
+  const runBtn = h('button', { class: 'btn', type: 'button' }, t('syn.run')) as HTMLButtonElement;
+  const stopBtn = h('button', { class: 'btn btn-secondary', type: 'button', disabled: true }, t('common.stop')) as HTMLButtonElement;
   const progress = h('progress', { max: 1, value: 0 }) as HTMLProgressElement;
-  const status = h('p', { class: 'outcome-reason' }, 'Not run yet.');
-  const ratePlot = new Plot('Rejection rate versus rotation for three synthetic objects', 260);
+  const status = h('p', { class: 'outcome-reason' }, t('common.notRun'));
+  const ratePlot = new Plot(t('syn.cardSweep'), 260);
   const tableSlot = h('div', { class: 'table-wrap' });
   let stopRequested = false;
 
@@ -146,14 +147,14 @@ export function syntheticView(): { element: HTMLElement; dispose: () => void } {
   const sweepControls = h(
     'div',
     { class: 'controls' },
-    field('Axis', select([{ value: 'yaw', label: 'Yaw (turn)' }, { value: 'pitch', label: 'Pitch (nod)' }], sweep.axis, (v) => (sweep.axis = v))),
+    field(t('syn.axis'), select([{ value: 'yaw', label: t('syn.axisYaw') }, { value: 'pitch', label: t('syn.axisPitch') }], sweep.axis, (v) => (sweep.axis = v))),
     field('σ (px)', numberInput(sweep.sigma, (v) => (sweep.sigma = v), { min: 0.05, step: 0.1 })),
-    field('Distance (cm)', numberInput(sweep.distance, (v) => (sweep.distance = v), { min: 25, max: 300, step: 5 })),
-    field('Landmarks', select((Object.keys(LANDMARK_SETS) as LandmarkSetId[]).map((k) => ({ value: k, label: LANDMARK_SETS[k].label })), sweep.set, (v) => (sweep.set = v))),
-    field('Trials per cell', numberInput(sweep.trials, (v) => (sweep.trials = Math.max(10, Math.round(v))), { min: 10, step: 50 })),
+    field(t('syn.distance'), numberInput(sweep.distance, (v) => (sweep.distance = v), { min: 25, max: 300, step: 5 })),
+    field(t('syn.landmarks'), select((Object.keys(LANDMARK_SETS) as LandmarkSetId[]).map((k) => ({ value: k, label: t(`set.${k}.label` as MessageKey) })), sweep.set, (v) => (sweep.set = v))),
+    field(t('syn.trials'), numberInput(sweep.trials, (v) => (sweep.trials = Math.max(10, Math.round(v))), { min: 10, step: 50 })),
     field('α', numberInput(sweep.alpha, (v) => (sweep.alpha = v), { min: 0.001, max: 0.5, step: 0.01 })),
-    field('Seed', numberInput(sweep.seed, (v) => (sweep.seed = Math.round(v)), { step: 1 })),
-    field('Rotations (°)', rotationsInput),
+    field(t('syn.seed'), numberInput(sweep.seed, (v) => (sweep.seed = Math.round(v)), { step: 1 })),
+    field(t('syn.rotations'), rotationsInput),
     h('div', { class: 'btn-row' }, runBtn, stopBtn),
   );
 
@@ -163,13 +164,13 @@ export function syntheticView(): { element: HTMLElement; dispose: () => void } {
       .map((v) => Number(v.trim()))
       .filter((v) => Number.isFinite(v) && v >= 0);
     if (!rotations.length) {
-      status.textContent = 'Enter at least one rotation.';
+      status.textContent = t('syn.enterRotation');
       return;
     }
     runBtn.disabled = true;
     stopBtn.disabled = false;
     stopRequested = false;
-    status.textContent = 'Running…';
+    status.textContent = t('syn.running');
     const t0 = performance.now();
     const result = await runSweep(
       { kinds: KINDS, rotationsDeg: rotations, axis: sweep.axis, sigmaPx: sweep.sigma, distanceCm: sweep.distance, indices: LANDMARK_SETS[sweep.set].indices, trials: sweep.trials, alpha: sweep.alpha, seed: sweep.seed, intrinsics: DEFAULT_INTRINSICS },
@@ -180,22 +181,22 @@ export function syntheticView(): { element: HTMLElement; dispose: () => void } {
     runBtn.disabled = false;
     stopBtn.disabled = true;
     if (!result.ok) {
-      status.textContent = result.reason === 'stopped' ? 'Stopped.' : `Cannot run: ${result.reason}. The method functions in src/method/ must be implemented first (MATH_SPEC.md).`;
+      status.textContent = result.reason === 'stopped' ? t('syn.stopped') : t('syn.cannotRun', { reason: result.reason });
       return;
     }
-    status.textContent = `Done in ${((performance.now() - t0) / 1000).toFixed(1)} s. Seed ${sweep.seed}; rerunning with the same settings reproduces these numbers exactly.`;
+    status.textContent = t('syn.done', { seconds: ((performance.now() - t0) / 1000).toFixed(1), seed: sweep.seed });
     renderSweep(result.points);
   });
   stopBtn.addEventListener('click', () => (stopRequested = true));
 
   function renderSweep(points: SweepPoint[]): void {
     ratePlot.render({
-      xLabel: `${sweep.axis} rotation (°)`,
-      yLabel: 'rejection rate',
+      xLabel: t('syn.chartX', { axis: sweep.axis === 'yaw' ? t('syn.axisYaw') : t('syn.axisPitch') }),
+      yLabel: t('syn.chartY'),
       yDomain: [0, 1],
       formatY: (v) => v.toFixed(2),
       series: KINDS.map((k) => ({
-        label: KIND_LABEL[k],
+        label: KIND_LABEL[k](),
         ...KIND_STYLE[k],
         points: points.filter((p) => p.kind === k).map((p) => ({ x: p.rotationDeg, y: p.rate, lo: p.ci95[0], hi: p.ci95[1] })),
       })),
@@ -204,21 +205,21 @@ export function syntheticView(): { element: HTMLElement; dispose: () => void } {
     clear(tableSlot);
     tableSlot.append(
       table(
-        ['Object', 'Rotation (°)', 'Trials', 'Rejected', 'Rate', '95 % Wilson CI', 'mean T/dof'],
-        points.map((p) => [KIND_LABEL[p.kind], fmt(p.rotationDeg, 1), String(p.trials), String(p.rejections), fmt(p.rate, 3), `${fmt(p.ci95[0], 3)} – ${fmt(p.ci95[1], 3)}`, fmt(p.meanTOverDof, 3)]),
-        'Every point in the chart, with its uncertainty.',
+        [t('syn.colObject'), t('syn.colRotation'), t('syn.colTrials'), t('syn.colRejected'), t('syn.colRate'), t('syn.colCi'), t('syn.colMeanT')],
+        points.map((p) => [KIND_LABEL[p.kind](), fmt(p.rotationDeg, 1), String(p.trials), String(p.rejections), fmt(p.rate, 3), `${fmt(p.ci95[0], 3)} – ${fmt(p.ci95[1], 3)}`, fmt(p.meanTOverDof, 3)]),
+        t('syn.tableCaption'),
       ),
     );
   }
 
-  ratePlot.render({ xLabel: 'rotation (°)', yLabel: 'rejection rate', emptyMessage: 'Run a sweep to see size and power' });
+  ratePlot.render({ xLabel: t('syn.colRotation'), yLabel: t('syn.chartY'), emptyMessage: t('syn.chartEmpty') });
 
   const sweepCard = card(
-    'Monte-Carlo: size and power of the test',
+    t('syn.cardSweep'),
     h(
       'p',
       { class: 'outcome-reason' },
-      'For each object and rotation, many noisy frame pairs are generated and tested. For the flat print the rejection rate is the test’s false-rejection rate (its size; it should stay near α). For the 3D face it is the power. Error bars are 95 % Wilson intervals.',
+      t('syn.sweepHelp'),
     ),
     sweepControls,
     progress,
@@ -226,7 +227,7 @@ export function syntheticView(): { element: HTMLElement; dispose: () => void } {
     ratePlot.element,
     tableSlot,
     note(
-      'These are properties of the method on an idealised scene: pinhole camera, no lens distortion, no rolling shutter, independent Gaussian landmark noise of known σ, rigid objects. They are predictions to be tested, not measurements of real-world performance.',
+      t('syn.idealNote'),
       'warn',
     ),
   );
@@ -234,12 +235,8 @@ export function syntheticView(): { element: HTMLElement; dispose: () => void } {
   const element = h(
     'div',
     {},
-    h('h1', {}, 'Synthetic lab'),
-    h(
-      'p',
-      { class: 'page-intro' },
-      'A simulated camera views MediaPipe’s canonical 3D face model, a flat print of it, or a curved print. Because the ground truth is known here, this is where the method is checked before it is trusted on real video.',
-    ),
+    h('h1', {}, t('syn.title')),
+    h('p', { class: 'page-intro' }, t('syn.intro')),
     h('div', { class: 'stack' }, pairCard, sweepCard),
   );
 

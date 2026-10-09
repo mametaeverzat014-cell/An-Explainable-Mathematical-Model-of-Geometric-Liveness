@@ -16,21 +16,5 @@ export type Provenance =
   /** The responsible method function has not been implemented yet. */
   | 'not-implemented';
 
-export const PROVENANCE_LABEL: Record<Provenance, string> = {
-  measured: 'Measured',
-  'mediapipe-estimate': 'MediaPipe estimate',
-  'method-output': 'Method output · unvalidated',
-  'synthetic-truth': 'Synthetic ground truth',
-  configuration: 'Configuration',
-  'not-implemented': 'Not implemented',
-};
-
-export const PROVENANCE_HELP: Record<Provenance, string> = {
-  measured: 'Read directly from the browser or camera; no learned model involved.',
-  'mediapipe-estimate': 'Produced by the MediaPipe face landmark network. Its accuracy on your camera is not known.',
-  'method-output':
-    'Computed by the planarity test. Valid only under the assumptions in MATH_SPEC.md; not yet validated on real presentations.',
-  'synthetic-truth': 'Known exactly because the scene is simulated.',
-  configuration: 'A setting fixed in advance. Defaults marked "placeholder" still need justification.',
-  'not-implemented': 'The method function for this step is not implemented in the build you are running.',
-};
+// Display labels and help texts are translated: see src/ui/locales/*.ts
+// (keys prov.<id> and provHelp.<id>).

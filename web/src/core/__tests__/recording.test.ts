@@ -116,3 +116,42 @@ describe('analyzeRecording with the real method', () => {
     expect(f.rejected).toBe(f.tested);
   });
 });
+
+describe('bundles and whole-set analysis', () => {
+  const cal = () => syntheticRecording({ ...base, kind: 'plane', role: 'calibration', yawAmplitudeDeg: 0, pitchAmplitudeDeg: 0, durationMs: 3000, sigmaPx: 0.8, seed: 21 });
+  const tr = (kind: 'plane' | 'face3d', seed: number) =>
+    syntheticRecording({ ...base, kind, role: 'trial', yawAmplitudeDeg: 20, pitchAmplitudeDeg: 10, durationMs: 6000, sigmaPx: 0.8, seed });
+
+  it('parseRecordingsFile accepts a single recording or a bundle and validates every recording', async () => {
+    const { makeBundle, parseRecordingsFile } = await import('../recording');
+    expect(parseRecordingsFile(JSON.stringify(cal()))).toHaveLength(1);
+    const bundle = makeBundle([cal(), tr('plane', 22)], 'Q4-test', 'synthetic');
+    expect(parseRecordingsFile(JSON.stringify(bundle))).toHaveLength(2);
+    const broken = { ...bundle, recordings: [cal(), { meta: { format: 'x' }, frames: [] }] };
+    expect(() => parseRecordingsFile(JSON.stringify(broken))).toThrow(/recording 2 in bundle/);
+  });
+
+  it('analyzeSet pools calibration, groups by condition and bootstraps over recordings', async () => {
+    const { analyzeSet, DEFAULT_SET_SETTINGS } = await import('../recording-analysis');
+    const recs = [cal(), tr('plane', 31), tr('plane', 32), tr('plane', 33), tr('face3d', 34), tr('face3d', 35)];
+    const a = analyzeSet(recs, { ...DEFAULT_SET_SETTINGS, windowMs: 1000 });
+    expect(a.ok).toBe(true);
+    if (!a.ok) return;
+    expect(a.calibration.sigmaPx).toBeGreaterThan(0.7);
+    expect(a.calibration.sigmaPx).toBeLessThan(0.9);
+    const plane = a.conditions.find((c) => c.condition === 'synthetic-plane')!;
+    const face = a.conditions.find((c) => c.condition === 'synthetic-face3d')!;
+    expect(plane.recordings).toBe(3);
+    expect(plane.recordingRates).toHaveLength(3);
+    expect(plane.meanRateCi95).not.toBeNull();
+    expect(face.pooledRate).toBe(1);
+    expect(face.meanRateCi95).toEqual([1, 1]);
+  });
+
+  it('analyzeSet explains what is missing', async () => {
+    const { analyzeSet, DEFAULT_SET_SETTINGS } = await import('../recording-analysis');
+    expect(analyzeSet([cal()], DEFAULT_SET_SETTINGS)).toEqual({ ok: false, error: 'no trial recordings' });
+    const r = analyzeSet([tr('plane', 41)], DEFAULT_SET_SETTINGS);
+    expect(r.ok).toBe(false);
+  });
+});

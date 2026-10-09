@@ -144,3 +144,49 @@ export function recordingFileName(meta: RecordingMeta): string {
   const safe = (s: string) => s.replace(/[^A-Za-z0-9_-]+/g, '-').slice(0, 40);
   return `${date}_${safe(who ?? 'target')}_${safe(meta.condition)}_${meta.role}_${meta.id}.json`;
 }
+
+// A bundle holds several recordings of one experiment session in one file
+// (written by the Experiment view). The analysis accepts both.
+export const BUNDLE_FORMAT = 'parallax-lab/bundle';
+export const BUNDLE_VERSION = 1;
+
+export interface RecordingBundle {
+  format: typeof BUNDLE_FORMAT;
+  version: typeof BUNDLE_VERSION;
+  createdAt: string;
+  protocolId: string | null;
+  notes: string;
+  recordings: Recording[];
+}
+
+export function makeBundle(recordings: Recording[], protocolId: string | null, notes: string): RecordingBundle {
+  return { format: BUNDLE_FORMAT, version: BUNDLE_VERSION, createdAt: new Date().toISOString(), protocolId, notes, recordings };
+}
+
+/** Parse a file holding either one recording or a bundle; every recording is validated. */
+export function parseRecordingsFile(json: string): Recording[] {
+  let data: unknown;
+  try {
+    data = JSON.parse(json);
+  } catch (e) {
+    fail(`invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+  }
+  const obj = data as { format?: unknown; version?: unknown; recordings?: unknown };
+  if (obj && typeof obj === 'object' && obj.format === BUNDLE_FORMAT) {
+    if (obj.version !== BUNDLE_VERSION) fail(`unsupported bundle version ${String(obj.version)}`);
+    if (!Array.isArray(obj.recordings)) fail('bundle without "recordings" array');
+    return obj.recordings.map((r, i) => {
+      try {
+        return validateRecording(r);
+      } catch (e) {
+        fail(`recording ${i + 1} in bundle: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    });
+  }
+  return [validateRecording(data)];
+}
+
+export function bundleFileName(b: RecordingBundle): string {
+  const safe = (s: string) => s.replace(/[^A-Za-z0-9_-]+/g, '-').slice(0, 40);
+  return `${b.createdAt.slice(0, 10)}_${safe(b.protocolId ?? 'experiment')}_${b.recordings.length}-recordings.json`;
+}
