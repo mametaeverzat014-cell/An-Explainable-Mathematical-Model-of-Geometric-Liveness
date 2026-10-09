@@ -298,7 +298,7 @@ export function experimentView(): { element: HTMLElement; dispose: () => void } 
     }
     const k = a.conditions[0];
     const alpha = SETTINGS.alpha;
-    const ci = k.meanRateCi95;
+    const ci = k.clusterCi95;
     const verdict = !ci ? t('exp.tooFew') : ci[0] > alpha ? t('exp.higher', { alpha }) : ci[1] < alpha ? t('exp.lower', { alpha }) : t('exp.consistent', { alpha });
     const bundleBtn = h('button', { class: 'btn', type: 'button' }, t('exp.downloadBundle'));
     bundleBtn.addEventListener('click', () => {
@@ -314,7 +314,7 @@ export function experimentView(): { element: HTMLElement; dispose: () => void } 
       card(
         t('exp.s4.title'),
         h('p', {}, t('exp.prediction', { alpha })),
-        row(t('ana.colMeanRate'), `${fmt(k.meanRecordingRate, 3)} ${ci ? `[${fmt(ci[0], 3)}, ${fmt(ci[1], 3)}]` : ''}`, 'method-output'),
+        row(t('ana.colRateCi'), `${fmt(k.pooledRate, 3)} ${ci ? `[${fmt(ci[0], 3)}, ${fmt(ci[1], 3)}]` : ''}`, 'method-output'),
         row(t('ana.colRecordings'), String(k.recordings), 'measured'),
         row(`${t('ana.colRejected')} / ${t('ana.colTested')}`, `${k.rejected} / ${k.tested}`, 'method-output'),
         row('σ', `${fmt(a.calibration.sigmaPx, 3)} px`, 'method-output'),

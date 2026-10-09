@@ -89,8 +89,8 @@ for (const s of a.summaries) {
   console.log(`  ${s.condition.padEnd(20)} ${s.recordingId.padEnd(28)} ${s.pairs} pairs, rejected ${rate}${s.blockedStage ? `  (${s.blockedStage})` : ''}`);
 }
 for (const k of a.conditions) {
-  const boot = k.meanRateCi95 ? `[${k.meanRateCi95.map(f3).join(', ')}]` : '(needs ≥ 2 recordings)';
-  console.log(`${k.condition}: ${k.recordings} recordings, mean per-recording rate ${k.meanRecordingRate === null ? '—' : f3(k.meanRecordingRate)} ${boot}`);
+  const ci = k.clusterCi95 ? `95 % CI [${k.clusterCi95.map(f3).join(', ')}], design effect ${f3(k.designEffect!)}` : '(interval needs ≥ 2 recordings with tested pairs)';
+  console.log(`${k.condition}: ${k.recordings} recordings, rejected ${k.rejected}/${k.tested} = ${k.pooledRate === null ? '—' : f3(k.pooledRate)} ${ci}`);
 }
 
 mkdirSync(values.out!, { recursive: true });
@@ -99,7 +99,7 @@ writeFileSync(
   join(values.out!, 'summary.json'),
   JSON.stringify(
     {
-      note: 'Pairs within one recording are not independent. Use meanRateCi95 (bootstrap over recordings) for inference; the pooled Wilson interval is too narrow.',
+      note: 'Pairs within one recording are not independent. Use clusterCi95 (Wilson interval with a design-effect correction and Student t over recordings) for inference; pooledCi95 treats pairs as independent and is too narrow.',
       settings: a.settings,
       calibration: a.calibration,
       conditions: a.conditions,

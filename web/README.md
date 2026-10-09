@@ -44,6 +44,7 @@ npm run build           # production build in dist/ (adds the Content-Security-P
 npm run test:e2e        # browser smoke tests against the production build
 npm run make-synthetic  # write example recordings from the synthetic scene
 npm run analyze -- ...  # offline analysis of recordings (docs/RESEARCH_MODE.md)
+npm run simulate-interval  # coverage check of the interval over recordings
 ```
 
 `npm run dev` and `npm run build` first run `scripts/fetch-assets.mjs`. It

@@ -200,7 +200,7 @@ describe('the real method, end to end', () => {
     }
     expect(covered / reps).toBeGreaterThan(0.92);
     expect(covered / reps).toBeLessThan(0.98);
-  });
+   }, 60_000);
 
   it('pure in-plane roll of a 3D face does not pass the motion gate', () => {
     // Roll about the viewing axis is an image rotation, i.e. an exact

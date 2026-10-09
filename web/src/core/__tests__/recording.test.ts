@@ -131,7 +131,7 @@ describe('bundles and whole-set analysis', () => {
     expect(() => parseRecordingsFile(JSON.stringify(broken))).toThrow(/recording 2 in bundle/);
   });
 
-  it('analyzeSet pools calibration, groups by condition and bootstraps over recordings', async () => {
+  it('analyzeSet pools calibration, groups by condition and gives an interval over recordings', async () => {
     const { analyzeSet, DEFAULT_SET_SETTINGS } = await import('../recording-analysis');
     const recs = [cal(), tr('plane', 31), tr('plane', 32), tr('plane', 33), tr('face3d', 34), tr('face3d', 35)];
     const a = analyzeSet(recs, { ...DEFAULT_SET_SETTINGS, windowMs: 1000 });
@@ -143,9 +143,15 @@ describe('bundles and whole-set analysis', () => {
     const face = a.conditions.find((c) => c.condition === 'synthetic-face3d')!;
     expect(plane.recordings).toBe(3);
     expect(plane.recordingRates).toHaveLength(3);
-    expect(plane.meanRateCi95).not.toBeNull();
+    expect(plane.clusterCi95).not.toBeNull();
     expect(face.pooledRate).toBe(1);
-    expect(face.meanRateCi95).toEqual([1, 1]);
+    expect(face.clusterCi95![1]).toBe(1);
+    // Only two recordings: Student t with 1 degree of freedom makes the interval very wide.
+    expect(face.clusterCi95![0]).toBeGreaterThan(0);
+    expect(face.clusterCi95![0]).toBeLessThan(0.5);
+    // Order of the input files does not change the result.
+    const b = analyzeSet([...recs].reverse(), { ...DEFAULT_SET_SETTINGS, windowMs: 1000 });
+    expect(b.ok && b.conditions).toEqual(a.conditions);
   });
 
   it('analyzeSet explains what is missing', async () => {

@@ -155,13 +155,13 @@ export function analyzeView(): { element: HTMLElement; dispose: () => void } {
           'div',
           { class: 'table-wrap' },
           table(
-            [t('ana.colCondition'), t('ana.colRecordings'), t('ana.colTested'), t('ana.colRejected'), t('ana.colMeanRate'), t('ana.colPooled')],
+            [t('ana.colCondition'), t('ana.colRecordings'), t('ana.colTested'), t('ana.colRejected'), t('ana.colRateCi'), t('ana.colPooled')],
             a.conditions.map((k) => [
               k.condition,
               String(k.recordings),
               String(k.tested),
               String(k.rejected),
-              `${fmt(k.meanRecordingRate, 3)} ${ci(k.meanRateCi95)}`,
+              `${fmt(k.pooledRate, 3)} ${ci(k.clusterCi95)}`,
               `${fmt(k.pooledRate, 3)} ${ci(k.pooledCi95)}`,
             ]),
           ),
@@ -180,11 +180,11 @@ export function analyzeView(): { element: HTMLElement; dispose: () => void } {
       points: k.recordingRates.map((r, j) => ({ x: i + (k.recordingRates.length > 1 ? (j / (k.recordingRates.length - 1) - 0.5) * 0.3 : 0), y: r })),
     }));
     const means: Series = {
-      label: t('ana.colMeanRate'),
+      label: t('ana.colRateCi'),
       colorVar: '--text-secondary',
       marker: 'square',
       line: false,
-      points: a.conditions.slice(0, 3).flatMap((k, i) => (k.meanRecordingRate === null ? [] : [{ x: i + 0.25, y: k.meanRecordingRate, lo: k.meanRateCi95?.[0], hi: k.meanRateCi95?.[1] }])),
+      points: a.conditions.slice(0, 3).flatMap((k, i) => (k.pooledRate === null ? [] : [{ x: i + 0.25, y: k.pooledRate, lo: k.clusterCi95?.[0], hi: k.clusterCi95?.[1] }])),
     };
     plot.render({
       xLabel: t('ana.chartX'),

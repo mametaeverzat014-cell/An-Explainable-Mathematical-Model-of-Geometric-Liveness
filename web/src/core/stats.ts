@@ -1,4 +1,3 @@
-import { Rng } from './rng';
 // Standard statistical distribution functions (infrastructure).
 // Implementations follow the classical series / continued-fraction
 // expansions of the regularised incomplete gamma function
@@ -174,25 +173,79 @@ export function quantile(values: readonly number[], q: number): number {
 }
 
 /**
- * Percentile bootstrap interval for the mean of `values` (resampling the
- * values with replacement). Used when the unit of analysis is the recording:
- * resampling recordings, not frame pairs, respects the dependence between
- * pairs from the same recording. Returns null for fewer than 2 values.
+ * Quantile of Student's t distribution with `df` degrees of freedom.
+ * Exact for df = 1 and 2; for df >= 3 the Cornish-Fisher expansion of
+ * Abramowitz & Stegun 26.7.5. At the 97.5 % point the absolute error is at
+ * most 0.004 (df = 3) and below 0.001 for df >= 4; further in the tail it is
+ * larger at small df (0.05 at the 99.5 % point, df = 3). Checked against
+ * tables in the tests.
  */
-export function bootstrapMeanInterval(
-  values: readonly number[],
-  seed: number,
-  reps = 4000,
-  confidence = 0.95,
-): [number, number] | null {
-  if (values.length < 2) return null;
-  const rng = new Rng(seed);
-  const means = new Array<number>(reps);
-  for (let r = 0; r < reps; r++) {
-    let s = 0;
-    for (let i = 0; i < values.length; i++) s += values[Math.floor(rng.uniform() * values.length)];
-    means[r] = s / values.length;
-  }
-  const a = (1 - confidence) / 2;
-  return [quantile(means, a), quantile(means, 1 - a)];
+export function studentTQuantile(p: number, df: number): number {
+  if (!(p > 0 && p < 1) || !(df >= 1)) throw new RangeError(`studentTQuantile: invalid p=${p} or df=${df}`);
+  if (df === 1) return Math.tan(Math.PI * (p - 0.5));
+  if (df === 2) return (2 * p - 1) / Math.sqrt(2 * p * (1 - p));
+  const x = normalQuantile(p);
+  const x2 = x * x;
+  const g1 = (x * (x2 + 1)) / 4;
+  const g2 = (x * (5 * x2 * x2 + 16 * x2 + 3)) / 96;
+  const g3 = (x * (3 * x2 * x2 * x2 + 19 * x2 * x2 + 17 * x2 - 15)) / 384;
+  const g4 = (x * (79 * x2 ** 4 + 776 * x2 ** 3 + 1482 * x2 * x2 - 1920 * x2 - 945)) / 92160;
+  return x + g1 / df + g2 / df ** 2 + g3 / df ** 3 + g4 / df ** 4;
+}
+
+export interface ClusteredRate {
+  /** Pooled rate: all successes / all trials. */
+  rate: number;
+  /** Number of clusters (recordings) with at least one trial. */
+  clusters: number;
+  trials: number;
+  /** Estimated design effect (>= 1): how much the clustering inflates the variance. */
+  designEffect: number;
+  /** trials / designEffect. */
+  effectiveN: number;
+  ci: [number, number];
+}
+
+/**
+ * Confidence interval for a rate when the trials come in clusters that are
+ * not independent (frame pairs within one recording).
+ *
+ * Wilson score interval computed with the effective sample size
+ * n_eff = n / deff, where the design effect deff is the ratio of the
+ * cluster-robust variance of the pooled rate (ratio estimator,
+ * v = k/(k-1) Σ (x_i - p̂ m_i)² / n²) to the binomial variance p̂(1-p̂)/n,
+ * floored at 1. Because only k clusters inform the variance, the normal
+ * quantile is replaced by Student's t with k - 1 degrees of freedom.
+ *
+ * Coverage was checked by simulation (web/docs/RESEARCH_MODE.md, section 4):
+ * 0.93-0.997 for 5-20 recordings with 2-8 tested pairs each, true rates
+ * 0.05 and 0.10, intra-recording correlation 0-0.3. It is conservative with
+ * few recordings and never collapses to zero width. Null with fewer than 2
+ * clusters.
+ */
+export function clusteredRateInterval(successes: readonly number[], trials: readonly number[], confidence = 0.95): ClusteredRate | null {
+  if (successes.length !== trials.length) throw new RangeError('clusteredRateInterval: successes and trials differ in length');
+  const xs: number[] = [];
+  const ms: number[] = [];
+  successes.forEach((x, i) => {
+    if (trials[i] > 0) {
+      xs.push(x);
+      ms.push(trials[i]);
+    }
+  });
+  const k = xs.length;
+  if (k < 2) return null;
+  const n = ms.reduce((a, b) => a + b, 0);
+  const p = xs.reduce((a, b) => a + b, 0) / n;
+  let ss = 0;
+  for (let i = 0; i < k; i++) ss += (xs[i] - p * ms[i]) ** 2;
+  const v = ((k / (k - 1)) * ss) / (n * n);
+  const v0 = (p * (1 - p)) / n;
+  const designEffect = v0 > 0 ? Math.max(1, v / v0) : 1;
+  const nEff = n / designEffect;
+  const z = studentTQuantile(1 - (1 - confidence) / 2, k - 1);
+  const denom = 1 + (z * z) / nEff;
+  const centre = (p + (z * z) / (2 * nEff)) / denom;
+  const half = (z * Math.sqrt((p * (1 - p)) / nEff + (z * z) / (4 * nEff * nEff))) / denom;
+  return { rate: p, clusters: k, trials: n, designEffect, effectiveN: nEff, ci: [Math.max(0, centre - half), Math.min(1, centre + half)] };
 }

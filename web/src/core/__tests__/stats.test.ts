@@ -92,16 +92,55 @@ describe('descriptive statistics', () => {
   });
 });
 
-describe('bootstrapMeanInterval', () => {
-  it('is reproducible, brackets the mean, and is null for a single value', async () => {
-    const { bootstrapMeanInterval } = await import('../stats');
-    const v = [0.1, 0.0, 0.05, 0.2, 0.0, 0.1, 0.05, 0.15];
-    const a = bootstrapMeanInterval(v, 1)!;
-    expect(bootstrapMeanInterval(v, 1)).toEqual(a);
-    const m = v.reduce((x, y) => x + y, 0) / v.length;
-    expect(a[0]).toBeLessThan(m);
-    expect(a[1]).toBeGreaterThan(m);
-    expect(bootstrapMeanInterval([0.3], 1)).toBeNull();
-    expect(bootstrapMeanInterval([0, 0, 0], 1)).toEqual([0, 0]);
+describe('studentTQuantile', () => {
+  it('matches tables', async () => {
+    const { studentTQuantile } = await import('../stats');
+    const t975: [number, number][] = [[1, 12.706], [2, 4.303], [3, 3.182], [4, 2.776], [9, 2.262], [19, 2.093], [60, 2.0]];
+    for (const [df, v] of t975) expect(Math.abs(studentTQuantile(0.975, df) - v)).toBeLessThan(0.005);
+    expect(studentTQuantile(0.5, 7)).toBeCloseTo(0, 12);
+    expect(studentTQuantile(0.025, 9)).toBeCloseTo(-studentTQuantile(0.975, 9), 12);
+  });
+});
+
+describe('clusteredRateInterval', () => {
+  it('never collapses to zero width, ignores clusters without trials, and needs 2 clusters', async () => {
+    const { clusteredRateInterval } = await import('../stats');
+    // Ten recordings, three tested pairs each, no rejection: the old
+    // percentile bootstrap returned [0, 0] here and the app concluded
+    // "fewer false rejections than α".
+    const zero = clusteredRateInterval(new Array(10).fill(0), new Array(10).fill(3))!;
+    expect(zero.ci[0]).toBe(0);
+    expect(zero.ci[1]).toBeGreaterThan(0.05);
+    expect(clusteredRateInterval([1, 0], [5, 0])).toBeNull();
+    expect(clusteredRateInterval([1], [5])).toBeNull();
+    const a = clusteredRateInterval([1, 0, 2, 0, 1], [5, 6, 4, 5, 6])!;
+    expect(a.rate).toBeCloseTo(4 / 26, 12);
+    // Same data in another order gives the same interval.
+    const c = clusteredRateInterval([0, 1, 0, 2, 1], [6, 5, 5, 4, 6])!;
+    expect(c.ci).toEqual(a.ci);
+  });
+
+  it('a strongly clustered set has a large design effect and a wider interval', async () => {
+    const { clusteredRateInterval } = await import('../stats');
+    const spread = clusteredRateInterval([1, 1, 1, 1, 1, 1], [6, 6, 6, 6, 6, 6])!;
+    const clustered = clusteredRateInterval([6, 0, 0, 0, 0, 0], [6, 6, 6, 6, 6, 6])!;
+    expect(spread.rate).toBe(clustered.rate);
+    expect(spread.designEffect).toBe(1);
+    expect(clustered.designEffect).toBeGreaterThan(4);
+    expect(clustered.ci[1] - clustered.ci[0]).toBeGreaterThan(spread.ci[1] - spread.ci[0]);
+  });
+
+  it('covers the true rate about 95 % of the time or more (10 recordings × 6 pairs, rate 0.05)', async () => {
+    const { clusteredRateInterval } = await import('../stats');
+    const { Rng } = await import('../rng');
+    const rng = new Rng(5);
+    const reps = 2000;
+    let covered = 0;
+    for (let r = 0; r < reps; r++) {
+      const x = Array.from({ length: 10 }, () => Array.from({ length: 6 }, () => (rng.uniform() < 0.05 ? 1 : 0)).reduce((a: number, b: number) => a + b, 0));
+      const ci = clusteredRateInterval(x, new Array(10).fill(6))!.ci;
+      if (ci[0] <= 0.05 && 0.05 <= ci[1]) covered++;
+    }
+    expect(covered / reps).toBeGreaterThan(0.93);
   });
 });

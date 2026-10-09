@@ -65,7 +65,7 @@ preceded this work):
 ### Phase 2 — research mode
 
 **Status (2026-10-09):** recording, export, offline and in-browser
-analysis (with a bootstrap interval over recordings), an Experiment wizard
+analysis (with an interval over recordings), an Experiment wizard
 for Q4 and synthetic recordings are implemented (`docs/RESEARCH_MODE.md`).
 The interface is translated into Russian and Kazakh. Recording people stays
 blocked without an approval reference. Not yet built: protocol manager with a

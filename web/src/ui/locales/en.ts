@@ -228,10 +228,10 @@ export const en = {
   'ana.colRecordings': 'Recordings',
   'ana.colTested': 'Tested pairs',
   'ana.colRejected': 'Rejected',
-  'ana.colMeanRate': 'Mean rate per recording [95 % bootstrap]',
+  'ana.colRateCi': 'Rejection rate [95 % CI over recordings]',
   'ana.colPooled': 'Pooled rate [Wilson, too narrow]',
   'ana.condNote':
-    'Pairs from one recording are not independent, so the recording is the unit of analysis: use the bootstrap interval of the mean per-recording rate. It needs at least 2 recordings per condition.',
+    'Pairs from one recording are not independent. The interval “over recordings” corrects for that (Wilson interval with a design-effect correction and Student t with recordings − 1 degrees of freedom); use it for conclusions. It needs at least 2 recordings with tested pairs per condition and is conservative with few recordings. The pooled Wilson interval treats pairs as independent and is shown only for comparison.',
   'ana.chartTitle': 'Rejection rate per recording',
   'ana.chartX': 'condition',
   'ana.chartY': 'rejection rate',

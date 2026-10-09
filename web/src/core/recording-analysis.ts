@@ -3,7 +3,7 @@ import { rotationFromAngles } from './geometry3d';
 import { analyzePair, calibrateNoise, DEFAULT_METHOD, type NoiseCalibration, type PlanarityMethod } from './method';
 import { framesOf, frameToRecorded, RECORDING_FORMAT, RECORDING_VERSION, type Recording, type RecordingMeta } from './recording';
 import { Rng } from './rng';
-import { bootstrapMeanInterval, wilsonInterval } from './stats';
+import { clusteredRateInterval, wilsonInterval } from './stats';
 import { LANDMARK_SETS, type LandmarkSetId } from './landmark-sets';
 import type { Correspondences } from './types';
 import { addNoise, DEFAULT_INTRINSICS, makeObject, projectObject, type ObjectKind } from './synthetic';
@@ -255,14 +255,20 @@ export interface ConditionSummary {
   recordings: number;
   tested: number;
   rejected: number;
-  /** Pairs pooled across recordings. The Wilson interval treats pairs as independent, so it is too narrow. */
+  /** Pooled rate: rejected / tested over all recordings of the condition. */
   pooledRate: number | null;
+  /** Wilson interval treating all pairs as independent. Too narrow: pairs from one recording are dependent. */
   pooledCi95: [number, number] | null;
   /** One rate per recording that had at least one tested pair. */
   recordingRates: number[];
-  meanRecordingRate: number | null;
-  /** Bootstrap over recordings: the recording is the unit of analysis. Null with fewer than 2 recordings. */
-  meanRateCi95: [number, number] | null;
+  /**
+   * Interval for the pooled rate that accounts for dependence within
+   * recordings (stats.ts, clusteredRateInterval). Use this one for
+   * conclusions. Null with fewer than 2 recordings with tested pairs.
+   */
+  clusterCi95: [number, number] | null;
+  /** Estimated design effect behind clusterCi95 (1 = pairs behave as independent). */
+  designEffect: number | null;
 }
 
 export interface CalibrationResult {
@@ -334,22 +340,28 @@ export function analyzeSet(recordings: readonly Recording[], settings: SetAnalys
     if (!byCondition.has(s.condition)) byCondition.set(s.condition, []);
     byCondition.get(s.condition)!.push(s);
   }
-  const conditions: ConditionSummary[] = [...byCondition.entries()].map(([condition, ss], k) => {
-    const tested = ss.reduce((a, s) => a + s.tested, 0);
-    const rejected = ss.reduce((a, s) => a + s.rejected, 0);
-    const recordingRates = ss.filter((s) => s.tested > 0).map((s) => s.rejected / s.tested);
-    const mean = recordingRates.length ? recordingRates.reduce((a, b) => a + b, 0) / recordingRates.length : null;
-    return {
-      condition,
-      recordings: ss.length,
-      tested,
-      rejected,
-      pooledRate: tested ? rejected / tested : null,
-      pooledCi95: tested ? wilsonInterval(rejected, tested) : null,
-      recordingRates,
-      meanRecordingRate: mean,
-      meanRateCi95: bootstrapMeanInterval(recordingRates, 20261009 + k),
-    };
-  });
-  return { ok: true, settings, calibration, summaries, rows, conditions };
+  // Sorted, so that the output does not depend on the order of the input files.
+  const conditions: ConditionSummary[] = [...byCondition.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([condition, ss]) => {
+      const tested = ss.reduce((a, s) => a + s.tested, 0);
+      const rejected = ss.reduce((a, s) => a + s.rejected, 0);
+      const cluster = clusteredRateInterval(
+        ss.map((s) => s.rejected),
+        ss.map((s) => s.tested),
+      );
+      return {
+        condition,
+        recordings: ss.length,
+        tested,
+        rejected,
+        pooledRate: tested ? rejected / tested : null,
+        pooledCi95: tested ? wilsonInterval(rejected, tested) : null,
+        recordingRates: ss.filter((s) => s.tested > 0).map((s) => s.rejected / s.tested),
+        clusterCi95: cluster ? cluster.ci : null,
+        designEffect: cluster ? cluster.designEffect : null,
+      };
+    });
+  // A copy: the caller's settings object may change after the run (UI inputs).
+  return { ok: true, settings: { ...settings }, calibration, summaries, rows, conditions };
 }
