@@ -252,39 +252,59 @@ the prints need approval.
 
 The planarity / parallax idea is **not new**. The contribution can be an
 open, explainable and statistically calibrated version, with honest
-measurement of its assumptions. You must read and cite at least these. The
-bibliographic details below were written from memory by the AI assistant:
-**check every one** against the actual paper before citing it.
+measurement of its assumptions. You must read and cite at least these.
+Entries marked ✓ were confirmed by a web search on 2026-10-09 (DOI or
+publisher record); the method descriptions come from abstracts, because full
+texts could not be downloaded. A fuller list with links and a Russian
+discussion is in `docs/PRIOR_WORK_RU.md`.
 
-- R. Hartley, A. Zisserman. *Multiple View Geometry in Computer Vision*, 2nd
-  ed., Cambridge University Press, 2004. Ch. 4 (homography estimation, DLT,
-  Sampson error), ch. 5 (evaluation), ch. 13 (planes and homographies).
-- R. Hartley. *In defense of the eight-point algorithm.* IEEE TPAMI, 1997
-  (why normalisation matters).
+- ✓ R. Hartley, A. Zisserman. *Multiple View Geometry in Computer Vision*,
+  2nd ed., Cambridge University Press, 2003/2004. Homography estimation, DLT,
+  Sampson error, evaluation, planes and homographies (check chapter numbers
+  against the book).
+- ✓ R. Hartley. *In defense of the eight-point algorithm.* IEEE TPAMI
+  19(6):580–593, 1997 (why normalisation matters).
+- ✓ P. H. S. Torr. *Bayesian model estimation and selection for epipolar
+  geometry and generic manifold fitting.* IJCV 50(1):35–61, 2002 (GRIC:
+  plane vs. general 3D model selection); K. Kanatani. *Geometric information
+  criterion for model selection.* IJCV 26(3):171–189, 1998. The plane-vs-3D
+  decision from residuals is standard; the project does not claim a new test.
 - M. Irani, P. Anandan. *Parallax geometry of pairs of points for 3D scene
-  analysis.* ECCV 1996 (plane + parallax).
-- M. De Marsico, M. Nappi, D. Riccio, J.-L. Dugelay. *Moving face spoofing
-  detection via 3D projective invariants.* ICB 2012. **Closest prior work:
-  uses projective invariants of facial points to detect planar spoofs.** Your
-  report must explain how your test differs (explicit noise model,
-  calibrated p-values, measured assumptions).
-- T. Wang, J. Yang, Z. Lei, S. Liao, S. Z. Li. *Face liveness detection using
+  analysis.* ECCV 1996 (plane + parallax). Not re-checked.
+- ✓ M. De Marsico, M. Nappi, D. Riccio, J.-L. Dugelay. *Moving face spoofing
+  detection via 3D projective invariants.* ICB 2012, pp. 73–78,
+  doi:10.1109/ICB.2012.6199761. **Closest prior work: uses projective
+  invariants (cross-ratios) of facial points to detect planar spoofs, without
+  training.** Your report must explain how your test differs (explicit noise
+  model, calibrated p-values, measured assumptions).
+- ✓ T. Wang, J. Yang, Z. Lei, S. Liao, S. Z. Li. *Face liveness detection using
   3D structure recovered from a single camera.* ICB 2013.
-- W. Bao, H. Li, N. Li, W. Jiang. *A liveness detection method for face
-  recognition based on optical flow field.* 2009.
-- K. Kollreider, H. Fronthaler, J. Bigun. *Non-intrusive liveness detection by
-  face images.* Image and Vision Computing, 2009.
-- Y. Li et al. *Seeing your face is not enough: an inertial sensor-based
-  liveness detection for face authentication.* ACM CCS 2015 (relevant to
-  Phase 3).
-- Y. Kartynnik et al. *Real-time facial surface geometry from monocular video
-  on mobile GPUs.* CVPR Workshops 2019 (MediaPipe Face Mesh).
-- ISO/IEC 30107-3, *Biometric presentation attack detection — Part 3: Testing
-  and reporting.* Use its vocabulary: *bona fide presentation*, *attack
-  presentation*, *presentation attack instrument (PAI)*, *PAI species*,
-  *APCER* (computed **per PAI species**), *BPCER*. ACER is not one of the
-  standard's metrics; it comes from competition protocols. Check the edition
-  you cite.
+- ✓ W. Bao, H. Li, N. Li, W. Jiang. *A liveness detection method for face
+  recognition based on optical flow field.* IASP 2009 (via survey citations).
+- ✓ K. Kollreider, H. Fronthaler, J. Bigun. *Non-intrusive liveness detection by
+  face images.* Image and Vision Computing 27(3):233–244, 2009,
+  doi:10.1016/j.imavis.2007.05.004.
+- ✓ J. H. Connell, N. K. Ratha (IBM). *Spoof detection for facial
+  recognition.* US Patent 9,898,674 B2 (displacements of facial points
+  tested against a 3D surface model).
+- ✓ Y. Li, Y. Li, Q. Yan, H. Kong, R. H. Deng. *Seeing your face is not
+  enough: an inertial sensor-based liveness detection for face
+  authentication.* ACM CCS 2015, doi:10.1145/2810103.2813612; K. T. Nguyen et
+  al., *Face spoofing detection for smartphones using a 3D reconstruction and
+  the motion sensors*, ICISSP 2018 (both relevant to Phase 3).
+- ✓ Y. Xu et al. *Virtual U: defeating face liveness detection by building
+  virtual models from your public photos.* USENIX Security 2016 (an attack a
+  planarity test cannot detect).
+- ✓ Y. Kartynnik et al. *Real-time facial surface geometry from monocular
+  video on mobile GPUs.* CVPR Workshops 2019, arXiv:1907.06724 (MediaPipe
+  Face Mesh).
+- ✓ ISO/IEC 30107-3, *Biometric presentation attack detection — Part 3:
+  Testing and reporting.* The 2017 edition was withdrawn on 2023-01-10; the
+  current edition is ISO/IEC 30107-3:2023. Use its vocabulary: *bona fide
+  presentation*, *attack presentation*, *presentation attack instrument
+  (PAI)*, *PAI species*, *APCER* (computed **per PAI species**), *BPCER*.
+  ACER is not one of the standard's metrics; it comes from competition
+  protocols.
 
 Learning resources:
 
