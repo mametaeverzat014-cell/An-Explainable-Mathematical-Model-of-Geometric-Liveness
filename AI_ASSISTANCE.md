@@ -56,9 +56,22 @@ implementation is that same code with explanatory comments. The simulation
 numbers quoted in `MATH_SPEC.md` come from it; the authors should reproduce
 them in the Synthetic lab.
 
-**Literature.** The reference list in `MATH_SPEC.md` was written from the
-assistant's memory. Every citation must be checked against the original
-publication before use.
+**Literature.** The reference list in `MATH_SPEC.md` was first written from
+the assistant's memory. On 2026-10-09 it was checked by web search, and the
+closest prior work was collected in `docs/PRIOR_WORK_RU.md`. Full texts
+could not be downloaded, so method descriptions come from abstracts; read
+the originals (at least De Marsico et al. 2012) before citing them.
+
+**Overnight work, 2026-10-09** (asked: “what else can be improved”):
+offline mode (service worker); the literature check above; a code review of
+the method and research mode by a separate AI agent, whose findings the
+assistant reproduced and fixed. The fixes changed the method's behaviour:
+calibration pairs no longer share frames (the σ interval had ≈ 88 %
+coverage instead of 95 %); the motion gate counts only out-of-plane
+rotation (in-plane roll used to pass it); the interval over recordings is
+now a design-effect-corrected Wilson interval with Student t (the earlier
+bootstrap could collapse to [0, 0]). Details and simulations:
+`web/docs/MATH_SPEC.md` (M4, M5), `web/docs/RESEARCH_MODE.md` (section 4).
 
 ## Rules going forward
 
