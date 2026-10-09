@@ -144,6 +144,9 @@ export function analyzeView(): { element: HTMLElement; dispose: () => void } {
         row(t('live.rowInterval'), c.interval95 ? `${fmt(c.interval95[0], 3)} – ${fmt(c.interval95[1], 3)}` : '—', 'method-output'),
         row('', c.source === 'fixed' ? t('ana.sigmaFixed') : t('ana.sigmaFrom', { n: c.calibrationRecordings })),
         c.rejectedForMotion.length ? note(t('ana.rejectedCal', { ids: c.rejectedForMotion.join(', ') }), 'warn') : null,
+        c.sigmaDisagrees
+          ? note(t('ana.sigmaDisagree', { values: c.perRecording.map((r) => `${fmt(r.sigmaPx, 2)} [${fmt(r.interval95?.[0], 2)}, ${fmt(r.interval95?.[1], 2)}]`).join('; ') }), 'warn')
+          : null,
       ),
     );
 

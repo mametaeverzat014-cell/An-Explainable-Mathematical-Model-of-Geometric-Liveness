@@ -83,6 +83,13 @@ console.log(
     : `sigma = ${c.sigmaPx.toFixed(3)} px [${c.interval95?.map((v) => v.toFixed(3)).join(', ') ?? '—'}] from ${c.calibrationRecordings} calibration recording(s)` +
         (c.rejectedForMotion.length ? `; rejected for motion: ${c.rejectedForMotion.join(', ')}` : ''),
 );
+if (c.sigmaDisagrees) {
+  console.warn(
+    'WARNING: the calibration recordings disagree (their sigma intervals do not overlap): ' +
+      c.perRecording.map((r) => `${r.id} ${r.sigmaPx.toFixed(3)} [${r.interval95?.map((v) => v.toFixed(3)).join(', ') ?? '—'}]`).join('; ') +
+      '. Analyse each session with its own calibration.',
+  );
+}
 const f3 = (v: number) => v.toFixed(3);
 for (const s of a.summaries) {
   const rate = s.rejectionRate === null ? '—' : `${s.rejected}/${s.tested} = ${f3(s.rejectionRate)}`;

@@ -131,8 +131,9 @@ export function frameLoop(video: HTMLVideoElement, onFrame: (tick: FrameTick) =>
       const ts = source === 'captureTime' ? (meta.captureTime as number) : meta.mediaTime * 1000;
       const delta = lastPresented === null ? null : meta.presentedFrames - lastPresented;
       lastPresented = meta.presentedFrames;
-      onFrame({ timestampMs: ts, source, presentedFramesDelta: delta });
+      // Re-register first: an exception in onFrame must not stop the loop.
       handle = v.requestVideoFrameCallback!(cb);
+      onFrame({ timestampMs: ts, source, presentedFramesDelta: delta });
     };
     handle = v.requestVideoFrameCallback(cb);
     return () => {
@@ -144,11 +145,11 @@ export function frameLoop(video: HTMLVideoElement, onFrame: (tick: FrameTick) =>
   let raf = 0;
   const loop = () => {
     if (stopped) return;
+    raf = requestAnimationFrame(loop);
     if (video.currentTime !== lastTime) {
       lastTime = video.currentTime;
       onFrame({ timestampMs: performance.now(), source: 'animationFrame', presentedFramesDelta: null });
     }
-    raf = requestAnimationFrame(loop);
   };
   raf = requestAnimationFrame(loop);
   return () => {

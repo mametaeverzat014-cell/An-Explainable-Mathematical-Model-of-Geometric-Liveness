@@ -72,7 +72,15 @@ accepted. Use `--sigma <px>` to fix σ instead of using calibration files.
 
 - σ is pooled over all calibration recordings with the method's M5 function.
   A calibration recording is rejected if the pose changed by more than
-  `--max-cal-motion` degrees during the hold.
+  `--max-cal-motion` degrees between any two frames of the hold.
+- **One σ for all trials.** If the calibration recordings come from sessions
+  with different noise (camera, distance, light) and their σ intervals do not
+  overlap, the analysis warns: a pooled σ is then too strict for one session
+  and too lax for another. Analyse each session separately (one bundle from
+  the Experiment tab is one session).
+- Settings are checked first (α strictly between 0 and 1, window > 0,
+  calibration gap a whole number ≥ 1, ...); invalid settings are refused
+  with a reason.
 - **Pair rule “non-overlapping windows”**: each trial is cut into consecutive
   windows of `--window` ms; in each window the first frame is paired with the
   frame of largest MediaPipe rotation from it. No frame is used twice. The

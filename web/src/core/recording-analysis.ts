@@ -167,8 +167,11 @@ const CSV_COLUMNS: (keyof PairRow)[] = ['recordingId', 'condition', 'window', 't
 export function rowsToCsv(rows: readonly PairRow[]): string {
   const esc = (v: unknown) => {
     if (v === null || v === undefined) return '';
-    const s = typeof v === 'number' ? String(Number(v.toPrecision(10))) : String(v);
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    let s = typeof v === 'number' ? String(Number(v.toPrecision(10))) : String(v);
+    // Text from recording files (condition, ID) could start a spreadsheet
+    // formula; prefix such cells with an apostrophe. Numbers are left as is.
+    if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
+    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   return [CSV_COLUMNS.join(','), ...rows.map((r) => CSV_COLUMNS.map((c) => esc(r[c])).join(','))].join('\n') + '\n';
 }
@@ -278,6 +281,15 @@ export interface CalibrationResult {
   interval95: [number, number] | null;
   calibrationRecordings: number;
   rejectedForMotion: string[];
+  /** σ from each accepted calibration recording on its own. */
+  perRecording: { id: string; sigmaPx: number; interval95: [number, number] | null }[];
+  /**
+   * True when the 95 % intervals of two calibration recordings do not
+   * overlap: the noise differed between sessions (camera, distance, light),
+   * and one pooled σ makes the test too strict for one session and too lax
+   * for the other. Analyse such sessions separately.
+   */
+  sigmaDisagrees: boolean;
 }
 
 export type SetAnalysis =
@@ -295,7 +307,20 @@ export type SetAnalysis =
  * Analyse a whole set of recordings: sigma from all calibration recordings
  * (pooled), every trial with the pair rule, then per-condition summaries.
  */
+/** Reason why the settings cannot be used, or null. */
+export function invalidSettings(s: SetAnalysisSettings): string | null {
+  if (!(s.landmarkSet in LANDMARK_SETS)) return `unknown landmark set "${s.landmarkSet}"`;
+  if (!(s.windowMs > 0)) return 'the window must be longer than 0 ms';
+  if (!(s.alpha > 0 && s.alpha < 1)) return 'α must be between 0 and 1';
+  if (!(s.minMotionDeg >= 0)) return 'the minimum rotation must be 0° or more';
+  if (!Number.isInteger(s.calibrationGap) || s.calibrationGap < 1) return 'the calibration gap must be a whole number of frames, at least 1';
+  if (!(s.maxCalibrationMotionDeg >= 0)) return 'the calibration motion limit must be 0° or more';
+  return null;
+}
+
 export function analyzeSet(recordings: readonly Recording[], settings: SetAnalysisSettings, method: PlanarityMethod = DEFAULT_METHOD): SetAnalysis {
+  const bad = invalidSettings(settings);
+  if (bad) return { ok: false, error: `invalid settings: ${bad}` };
   const indices = LANDMARK_SETS[settings.landmarkSet].indices;
   const trials = recordings.filter((r) => r.meta.role === 'trial');
   const cals = recordings.filter((r) => r.meta.role === 'calibration');
@@ -303,16 +328,25 @@ export function analyzeSet(recordings: readonly Recording[], settings: SetAnalys
 
   let calibration: CalibrationResult;
   if (settings.fixedSigmaPx && settings.fixedSigmaPx > 0) {
-    calibration = { source: 'fixed', sigmaPx: settings.fixedSigmaPx, dof: null, interval95: null, calibrationRecordings: 0, rejectedForMotion: [] };
+    calibration = { source: 'fixed', sigmaPx: settings.fixedSigmaPx, dof: null, interval95: null, calibrationRecordings: 0, rejectedForMotion: [], perRecording: [], sigmaDisagrees: false };
   } else {
     if (!cals.length) return { ok: false, error: 'no calibration recording (hold-still) and no fixed sigma' };
     const pairs: Correspondences[] = [];
     const rejectedForMotion: string[] = [];
+    const perRecording: CalibrationResult['perRecording'] = [];
     for (const cal of cals) {
       const built = calibrationPairs(framesOf(cal), indices, settings.calibrationGap);
-      if (built.maxRotationDeg > settings.maxCalibrationMotionDeg) rejectedForMotion.push(cal.meta.id);
-      else pairs.push(...built.pairs);
+      if (built.maxRotationDeg > settings.maxCalibrationMotionDeg) {
+        rejectedForMotion.push(cal.meta.id);
+        continue;
+      }
+      pairs.push(...built.pairs);
+      const own = calibrateNoise(built.pairs, method);
+      if (own.state === 'ok' && own.estimate) perRecording.push({ id: cal.meta.id, sigmaPx: own.estimate.sigmaPx, interval95: own.interval95 });
     }
+    const withCi = perRecording.filter((r) => r.interval95);
+    const sigmaDisagrees =
+      withCi.length > 1 && Math.max(...withCi.map((r) => r.interval95![0])) > Math.min(...withCi.map((r) => r.interval95![1]));
     if (!pairs.length) return { ok: false, error: 'every calibration recording moved too much during the hold' };
     const c = calibrateNoise(pairs, method);
     if (c.state !== 'ok' || !c.estimate) return { ok: false, error: `calibration failed: ${c.message ?? c.state}` };
@@ -323,6 +357,8 @@ export function analyzeSet(recordings: readonly Recording[], settings: SetAnalys
       interval95: c.interval95,
       calibrationRecordings: cals.length - rejectedForMotion.length,
       rejectedForMotion,
+      perRecording,
+      sigmaDisagrees,
     };
   }
 

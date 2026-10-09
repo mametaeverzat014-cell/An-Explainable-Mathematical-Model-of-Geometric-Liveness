@@ -87,11 +87,26 @@ export function select<T extends string>(
   return el;
 }
 
+/**
+ * Number field. An empty or invalid entry is reverted to the last valid
+ * value (an empty field would otherwise read as 0, e.g. α = 0); a typed value
+ * outside the field's min/max is clamped.
+ */
 export function numberInput(value: number, onChange: (v: number) => void, attrs: Attrs = {}): HTMLInputElement {
   const el = h('input', { type: 'number', value, ...attrs }) as HTMLInputElement;
+  let last = value;
   el.addEventListener('change', () => {
-    const v = Number(el.value);
-    if (Number.isFinite(v)) onChange(v);
+    const raw = el.value.trim();
+    let v = Number(raw);
+    if (raw === '' || !Number.isFinite(v)) {
+      el.value = String(last);
+      return;
+    }
+    if (el.min !== '') v = Math.max(Number(el.min), v);
+    if (el.max !== '') v = Math.min(Number(el.max), v);
+    el.value = String(v);
+    last = v;
+    onChange(v);
   });
   return el;
 }

@@ -46,6 +46,8 @@ class LiveSession {
   latestFrame: LandmarkFrame | null = null;
   latestAnalysis: PairAnalysis | null = null;
   latestReference: LandmarkFrame | null = null;
+  /** The frame `latestAnalysis` was computed on (its residual vectors belong to these landmark positions). */
+  analyzedFrame: LandmarkFrame | null = null;
   analysisNote: Msg | null = null;
   history: HistoryPoint[] = [];
   calibration: CalibrationState = { phase: 'none', startedAt: 0, frames: [], result: null, message: null, maxRotationDeg: 0 };
@@ -112,6 +114,9 @@ class LiveSession {
       this.buffer.clear();
       this.timing.reset();
       this.history = [];
+      // σ in px depends on the camera, its resolution and the distance, so a
+      // calibration from an earlier run does not carry over.
+      this.calibration = { phase: 'none', startedAt: 0, frames: [], result: null, message: null, maxRotationDeg: 0 };
       this.state = 'running';
       this.stopLoop = frameLoop(this.video, (tick) => this.process(tick));
     } catch (e) {
@@ -131,6 +136,11 @@ class LiveSession {
     this.state = 'idle';
     this.latestFrame = null;
     this.latestAnalysis = null;
+    this.analyzedFrame = null;
+    // A hold interrupted by stopping must not be completed with frames of the next run.
+    if (this.calibration.phase === 'collecting') {
+      this.calibration = { phase: 'none', startedAt: 0, frames: [], result: null, message: null, maxRotationDeg: 0 };
+    }
     this.emit();
   }
 
@@ -230,6 +240,7 @@ class LiveSession {
       motionDeg: sel.motionDeg,
     });
     this.latestAnalysis = a;
+    this.analyzedFrame = current;
     this.analysisNote = null;
     this.history.push({ t: current.timestampMs, tOverDof: a.stat ? a.stat.T / a.stat.dof : null, motionDeg: sel.motionDeg });
     if (this.history.length > 300) this.history.shift();

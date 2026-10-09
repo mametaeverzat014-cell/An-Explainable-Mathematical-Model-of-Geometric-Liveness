@@ -159,7 +159,8 @@ export function liveView(): { element: HTMLElement; dispose: () => void } {
 
     clear(testSlot);
     const dof = a?.stat?.dof ?? (a ? 2 * a.n - 8 : null);
-    const crit = dof && dof > 0 ? chiSquareQuantile(1 - s.config.alpha, dof) : null;
+    const alphaOk = s.config.alpha > 0 && s.config.alpha < 1;
+    const crit = dof && dof > 0 && alphaOk ? chiSquareQuantile(1 - s.config.alpha, dof) : null;
     testSlot.append(
       row(t('live.rowN'), a ? String(a.n) : '—', 'configuration'),
       row(t('live.rowRotation'), a ? `${fmt(a.motionDeg, 1)}°` : '—', 'mediapipe-estimate', t('live.rowRotationHint')),
@@ -267,10 +268,13 @@ export function liveView(): { element: HTMLElement; dispose: () => void } {
     for (const p of frame.points) ctx.fillRect(p.x - scale, p.y - scale, 2 * scale, 2 * scale);
     const idx = LANDMARK_SETS[session.config.landmarkSet].indices;
     const a = session.latestAnalysis;
-    if (a?.residualVectors && a.residualVectors.length === idx.length) {
+    const af = session.analyzedFrame;
+    if (a?.residualVectors && a.residualVectors.length === idx.length && af) {
+      // Drawn at the analysed frame's landmarks: the vectors belong to them,
+      // not to the newest frame (analysis runs about 10 times per second).
       ctx.lineWidth = 2.5 * scale;
       idx.forEach((li, k) => {
-        const p = frame.points[li];
+        const p = af.points[li];
         const r = a.residualVectors![k];
         ctx.strokeStyle = 'rgba(0,0,0,0.6)';
         ctx.beginPath();

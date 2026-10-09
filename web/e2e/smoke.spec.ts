@@ -198,3 +198,14 @@ test('after the first visit the app and the face model work offline', async ({ p
     killServer();
   }
 });
+
+test('number fields revert an empty entry and clamp out-of-range values', async ({ page }) => {
+  await page.goto('/#analyze');
+  const alpha = page.locator('main label', { hasText: 'α' }).locator('input[type=number]');
+  await alpha.fill('');
+  await alpha.dispatchEvent('change');
+  await expect(alpha).toHaveValue('0.05');
+  await alpha.fill('3');
+  await alpha.dispatchEvent('change');
+  await expect(alpha).toHaveValue('0.5');
+});

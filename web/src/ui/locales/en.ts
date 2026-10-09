@@ -224,6 +224,7 @@ export const en = {
   'ana.sigmaFixed': 'fixed by the user',
   'ana.sigmaFrom': 'from {n} calibration recording(s)',
   'ana.rejectedCal': 'Calibration recordings rejected for motion: {ids}',
+  'ana.sigmaDisagree': 'The calibration recordings disagree: their σ intervals (px) do not overlap: {values}. The noise differed between sessions (camera, distance or light), and one pooled σ is too strict for one session and too lax for another. Analyse each session with its own calibration.',
   'ana.cardConditions': 'Results by condition',
   'ana.colRecordings': 'Recordings',
   'ana.colTested': 'Tested pairs',

@@ -83,5 +83,6 @@ export function decide(input: DecisionInput): Outcome {
 }
 
 function formatP(p: number): string {
+  if (p === 0) return '< 1e-300'; // below the smallest representable double
   return p < 1e-4 ? p.toExponential(1) : p.toFixed(4);
 }

@@ -159,5 +159,33 @@ describe('bundles and whole-set analysis', () => {
     expect(analyzeSet([cal()], DEFAULT_SET_SETTINGS)).toEqual({ ok: false, error: 'no trial recordings' });
     const r = analyzeSet([tr('plane', 41)], DEFAULT_SET_SETTINGS);
     expect(r.ok).toBe(false);
+    // Invalid settings are refused with a reason instead of throwing or giving 0 % / 100 %.
+    for (const bad of [{ alpha: 0 }, { alpha: 1 }, { windowMs: 0 }, { calibrationGap: 0 }, { calibrationGap: 2.5 }, { minMotionDeg: Number.NaN }]) {
+      const x = analyzeSet([cal(), tr('plane', 42)], { ...DEFAULT_SET_SETTINGS, ...bad });
+      expect(x.ok).toBe(false);
+      if (!x.ok) expect(x.error).toMatch(/^invalid settings/);
+    }
+  });
+
+  it('analyzeSet warns when calibration recordings from different sessions disagree', async () => {
+    const { analyzeSet, DEFAULT_SET_SETTINGS } = await import('../recording-analysis');
+    const still = (sigmaPx: number, seed: number) =>
+      syntheticRecording({ ...base, kind: 'plane', role: 'calibration', yawAmplitudeDeg: 0, pitchAmplitudeDeg: 0, durationMs: 3000, sigmaPx, seed });
+    const same = analyzeSet([still(0.8, 51), still(0.8, 52), tr('plane', 53)], DEFAULT_SET_SETTINGS);
+    const differ = analyzeSet([still(0.5, 54), still(1.5, 55), tr('plane', 56)], DEFAULT_SET_SETTINGS);
+    expect(same.ok && differ.ok).toBe(true);
+    if (!same.ok || !differ.ok) return;
+    expect(same.calibration.perRecording).toHaveLength(2);
+    expect(same.calibration.sigmaDisagrees).toBe(false);
+    expect(differ.calibration.sigmaDisagrees).toBe(true);
+  });
+
+  it('CSV export neutralises spreadsheet formulas and quotes line breaks', async () => {
+    const { rowsToCsv } = await import('../recording-analysis');
+    const row = { recordingId: '=HYPERLINK("x")', condition: 'a\rb', window: 0, tRefMs: 0, tCurMs: 1, motionDeg: -1.5, n: 25, T: 1, dof: 42, pValue: 0.5, outcome: 'planar-consistent', reason: 'ok' };
+    const line = rowsToCsv([row as never]).split('\n')[1];
+    expect(line.startsWith('"\'=HYPERLINK(""x"")"')).toBe(true);
+    expect(line).toContain('"a\rb"');
+    expect(line).toContain(',-1.5,');
   });
 });

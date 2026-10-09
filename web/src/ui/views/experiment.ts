@@ -190,7 +190,7 @@ export function experimentView(): { element: HTMLElement; dispose: () => void } 
       state.step = 3;
       render();
     });
-    const back = h('button', { class: 'btn btn-secondary', type: 'button' }, t('common.back'));
+    const back = h('button', { class: 'btn btn-secondary', type: 'button', disabled: capture?.active === true }, t('common.back'));
     back.addEventListener('click', () => {
       state.step = 1;
       render();
