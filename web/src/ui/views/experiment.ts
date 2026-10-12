@@ -5,8 +5,11 @@ import {
   analyzeSet,
   calibrationFromRecording,
   DEFAULT_SET_SETTINGS,
+  recordingMotion,
+  type RecordingMotion,
   type RecordingSummary,
 } from '../../core/recording-analysis';
+import { frameRotationDeg } from '../../core/frames';
 import { card, clear, field, fmt, h, note, numberInput, row, select, table } from '../dom';
 import { t, type MessageKey } from '../i18n';
 import { buildRecording, Capture, downloadJson, tabRecordings } from '../recorder';
@@ -22,12 +25,15 @@ const SETTINGS = DEFAULT_SET_SETTINGS;
 const INDICES = LANDMARK_SETS[SETTINGS.landmarkSet].indices;
 const CALIBRATION_S = 3;
 const CONDITIONS = ['flat-print', 'screen-photo', 'curved-print'] as const;
+/** Warn when the face size differs from the calibration by more than this (relative). */
+const MAX_FACE_SIZE_CHANGE = 0.15;
 
 interface Calibration {
   recording: Recording;
   sigmaPx: number;
   interval95: [number, number] | null;
   pairs: number;
+  faceSizePx: number | null;
 }
 
 interface ExperimentState {
@@ -40,7 +46,7 @@ interface ExperimentState {
   confirmed: boolean;
   calibration: Calibration | null;
   calibrationMessage: string;
-  trials: { recording: Recording; summary: RecordingSummary }[];
+  trials: { recording: Recording; summary: RecordingSummary; motion: RecordingMotion }[];
 }
 
 function freshState(): ExperimentState {
@@ -63,10 +69,13 @@ let state = freshState();
 
 export function experimentView(): { element: HTMLElement; dispose: () => void } {
   let capture: Capture | null = null;
+  let liveMax = 0;
   const stage = cameraStage(() => capture?.active ?? false);
   const body = h('div', { class: 'stack' });
   const steps = h('div', { class: 'steps', 'aria-label': t('exp.step', { i: state.step }) });
   const progress = h('progress', { max: 1, value: 0 }) as HTMLProgressElement;
+  // Live feedback while a trial records: how far the print has turned so far.
+  const liveMotion = h('p', { class: 'live-motion', 'aria-live': 'polite' });
 
   function render(): void {
     clear(steps);
@@ -104,9 +113,21 @@ export function experimentView(): { element: HTMLElement; dispose: () => void } 
 
   function record(seconds: number, onDone: (rec: Recording | null, error: string | null) => void): void {
     if (capture?.active || session.state !== 'running') return;
+    liveMax = 0;
+    liveMotion.textContent = '';
+    liveMotion.classList.remove('ok');
     capture = new Capture(
       seconds * 1000,
-      (p) => (progress.value = Math.min(1, p.elapsedMs / p.durationMs)),
+      (p) => {
+        progress.value = Math.min(1, p.elapsedMs / p.durationMs);
+        if (state.step === 3 && p.frames.length > 1) {
+          // Running maximum against the first frame: cheap, and enough for feedback.
+          const m = frameRotationDeg(p.frames[0], p.frames[p.frames.length - 1]);
+          if (m !== null) liveMax = Math.max(liveMax, m);
+          liveMotion.textContent = t('exp.liveMotion', { deg: fmt(liveMax, 1), min: SETTINGS.minMotionDeg });
+          liveMotion.classList.toggle('ok', liveMax > SETTINGS.minMotionDeg);
+        }
+      },
       (frames, noFace) => {
         progress.value = 0;
         try {
@@ -173,7 +194,7 @@ export function experimentView(): { element: HTMLElement; dispose: () => void } 
         }
         const r = calibrationFromRecording(rec, INDICES, SETTINGS.calibrationGap, SETTINGS.maxCalibrationMotionDeg);
         if (r.state === 'ok' && r.estimate) {
-          state.calibration = { recording: rec, sigmaPx: r.estimate.sigmaPx, interval95: r.interval95, pairs: r.pairs };
+          state.calibration = { recording: rec, sigmaPx: r.estimate.sigmaPx, interval95: r.interval95, pairs: r.pairs, faceSizePx: recordingMotion(rec).faceSizePx };
           state.calibrationMessage = '';
           tabRecordings.unshift(rec);
         } else {
@@ -230,7 +251,7 @@ export function experimentView(): { element: HTMLElement; dispose: () => void } 
             alpha: SETTINGS.alpha,
             sigmaPx: state.calibration.sigmaPx,
           });
-          state.trials.push({ recording: rec, summary: r.summary });
+          state.trials.push({ recording: rec, summary: r.summary, motion: recordingMotion(rec) });
           tabRecordings.unshift(rec);
           state.calibrationMessage = '';
         } else {
@@ -259,6 +280,7 @@ export function experimentView(): { element: HTMLElement; dispose: () => void } 
         h('p', {}, t('exp.s3.instructions')),
         stage.element,
         progress,
+        liveMotion,
         h('div', { class: 'btn-row', style: 'margin-top:10px' }, cameraControls(), recBtn, redo),
         state.calibrationMessage ? note(state.calibrationMessage, 'warn') : null,
         done
@@ -266,9 +288,10 @@ export function experimentView(): { element: HTMLElement; dispose: () => void } 
               'div',
               { class: 'table-wrap', style: 'margin-top:10px' },
               table(
-                [t('exp.colTrial'), t('ana.colPairs'), t('ana.colTested'), t('ana.colRejected'), t('ana.colRate')],
+                [t('exp.colTrial'), t('exp.colMotion'), t('ana.colPairs'), t('ana.colTested'), t('ana.colRejected'), t('ana.colRate')],
                 state.trials.map((tr, i) => [
                   String(i + 1),
+                  `${fmt(tr.motion.maxRotationDeg, 1)}°`,
                   String(tr.summary.pairs),
                   String(tr.summary.tested),
                   String(tr.summary.rejected),
@@ -277,10 +300,28 @@ export function experimentView(): { element: HTMLElement; dispose: () => void } 
               ),
             )
           : null,
+        ...trialWarnings(),
         done > 0 && done < state.nTrials ? note(t('exp.finishEarly')) : null,
         h('div', { class: 'btn-row', style: 'margin-top:10px' }, finish),
       ),
     );
+  }
+
+  /** Warnings about the most recent trial, shown while it can still be discarded and recorded again. */
+  function trialWarnings(): HTMLElement[] {
+    const i = state.trials.length;
+    const last = state.trials[i - 1];
+    if (!last) return [];
+    const out: HTMLElement[] = [];
+    if (last.summary.tested === 0) {
+      out.push(note(t('exp.tooLittleMotion', { i, deg: fmt(last.motion.maxRotationDeg, 1), min: SETTINGS.minMotionDeg }), 'warn'));
+    }
+    const calSize = state.calibration?.faceSizePx;
+    const size = last.motion.faceSizePx;
+    if (calSize && size && Math.abs(size / calSize - 1) > MAX_FACE_SIZE_CHANGE) {
+      out.push(note(t('exp.distanceChanged', { i, pct: Math.round(100 * Math.abs(size / calSize - 1)) }), 'warn'));
+    }
+    return out;
   }
 
   // ---------- step 4 ----------

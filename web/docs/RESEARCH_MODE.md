@@ -43,6 +43,11 @@ approvals is the researchers' responsibility.
 **Easiest: the Experiment tab** walks through question Q4 step by step
 (set-up, still calibration, N trials rotating the print, result with an
 interval over recordings) and downloads everything as one bundle file.
+While a trial records it shows how far the print has turned so far. After
+each trial it warns, while the trial can still be discarded, if no frame
+pair passed the motion gate (the print was not turned enough) or if the face
+size differs from the calibration by more than 15 % (a different distance,
+so σ may not fit).
 
 Manual alternative in the **Record** tab:
 

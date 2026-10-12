@@ -154,6 +154,18 @@ describe('bundles and whole-set analysis', () => {
     expect(b.ok && b.conditions).toEqual(a.conditions);
   });
 
+  it('recordingMotion reports the rotation and the face size of a recording', async () => {
+    const { recordingMotion } = await import('../recording-analysis');
+    const still = recordingMotion(cal());
+    const moving = recordingMotion(tr('plane', 61));
+    expect(still.maxRotationDeg).toBeLessThan(0.01);
+    // Yaw ±20° and pitch ±10° (sinusoidal): far above the 5° gate.
+    expect(moving.maxRotationDeg).toBeGreaterThan(20);
+    expect(still.faceSizePx).toBeGreaterThan(50);
+    // Same distance in both: face size within a few percent.
+    expect(Math.abs(moving.faceSizePx! / still.faceSizePx! - 1)).toBeLessThan(0.1);
+  });
+
   it('analyzeSet explains what is missing', async () => {
     const { analyzeSet, DEFAULT_SET_SETTINGS } = await import('../recording-analysis');
     expect(analyzeSet([cal()], DEFAULT_SET_SETTINGS)).toEqual({ ok: false, error: 'no trial recordings' });

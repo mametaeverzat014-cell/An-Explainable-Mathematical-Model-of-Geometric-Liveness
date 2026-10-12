@@ -1,4 +1,4 @@
-import { calibrationPairs, correspondences, frameRotationDeg, type LandmarkFrame } from './frames';
+import { calibrationPairs, correspondences, frameRotationDeg, interocularPx, type LandmarkFrame } from './frames';
 import { rotationFromAngles } from './geometry3d';
 import { analyzePair, calibrateNoise, DEFAULT_METHOD, type NoiseCalibration, type PlanarityMethod } from './method';
 import { framesOf, frameToRecorded, RECORDING_FORMAT, RECORDING_VERSION, type Recording, type RecordingMeta } from './recording';
@@ -144,6 +144,28 @@ export function analyzeRecording(rec: Recording, opts: AnalysisOptions, method: 
       blockedStage,
     },
   };
+}
+
+export interface RecordingMotion {
+  /** Largest out-of-plane rotation between any two frames, degrees (MediaPipe pose; the measure the motion gate uses). */
+  maxRotationDeg: number;
+  /** Median outer-eye-corner distance in px: how large the face is in the image, i.e. how far it is from the camera. */
+  faceSizePx: number | null;
+}
+
+/** How much a recording moved, and how large the face was in it. Used to warn while recording. */
+export function recordingMotion(rec: Recording): RecordingMotion {
+  const frames = framesOf(rec);
+  let maxRotationDeg = 0;
+  for (let i = 0; i < frames.length; i++) {
+    for (let j = i + 1; j < frames.length; j++) {
+      const m = frameRotationDeg(frames[i], frames[j]);
+      if (m !== null && m > maxRotationDeg) maxRotationDeg = m;
+    }
+  }
+  const sizes = frames.map(interocularPx).sort((a, b) => a - b);
+  const faceSizePx = sizes.length ? sizes[Math.floor(sizes.length / 2)] : null;
+  return { maxRotationDeg, faceSizePx };
 }
 
 /** Estimate sigma from a calibration recording (object held still). */

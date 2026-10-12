@@ -682,3 +682,14 @@ label.btn {
   color: var(--info-ink);
   font-size: 0.9rem;
 }
+
+.live-motion {
+  min-height: 1.4em;
+  margin: 6px 0 0;
+  color: var(--warn-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.live-motion.ok {
+  color: var(--text-secondary);
+}
