@@ -16,7 +16,8 @@
     "test:e2e": "playwright test",
     "make-synthetic": "tsx scripts/make-synthetic-recordings.ts",
     "analyze": "tsx scripts/analyze-recordings.ts",
-    "simulate-interval": "tsx scripts/simulate-rate-interval.ts"
+    "simulate-interval": "tsx scripts/simulate-rate-interval.ts",
+    "diagnose": "tsx scripts/diagnose-residuals.ts"
   },
   "dependencies": {
     "@mediapipe/tasks-vision": "1.0.1"

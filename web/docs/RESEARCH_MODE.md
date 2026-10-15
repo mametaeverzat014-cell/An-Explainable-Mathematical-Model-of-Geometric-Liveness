@@ -135,6 +135,14 @@ new interval is strong correlation within recordings with 20 recordings
 (coverage ≈ 0.93). These are properties under the simulated model; real
 dependence between pairs is unknown until measured.
 
+**Exploratory diagnostics.** `npm run diagnose -- <files>` asks, for
+flat-print recordings, whether rejections come from random noise or from a
+parallax-like pattern: how the residual grows with rotation, how much of it
+follows the face's relief versus a bent sheet, which landmarks carry it, and
+how large σ would have to be for the χ² test to accept the print. These
+measures were designed after the first real data (14 Oct 2026); report them
+as exploratory, not as part of a pre-registered test.
+
 ## 5. Trying it without real data
 
 ```bash
