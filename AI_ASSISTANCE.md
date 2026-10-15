@@ -73,6 +73,15 @@ now a design-effect-corrected Wilson interval with Student t (the earlier
 bootstrap could collapse to [0, 0]). Details and simulations:
 `web/docs/MATH_SPEC.md` (M4, M5), `web/docs/RESEARCH_MODE.md` (section 4).
 
+**Q4 analysis and pitch materials, 12–15 Oct 2026.** The authors recorded
+the Q4 experiment themselves (Daulet, 12 and 14 Oct). The assistant analysed
+the recordings, added warnings to the Experiment wizard, wrote the
+exploratory script `npm run diagnose`, and, at the coordinator's request,
+prepared a Kazakh pitch deck, a 7-minute Kazakh speech and jury questions
+with suggested answers (not committed; delivered as PDFs). The suggested
+answers leave placeholders for what only the authors can state truthfully
+(their own contributions, ethics consent in stage 1).
+
 ## Rules going forward
 
 - Commits made with AI help keep the `Co-Authored-By` trailer.
