@@ -82,6 +82,16 @@ with suggested answers (not committed; delivered as PDFs). The suggested
 answers leave placeholders for what only the authors can state truthfully
 (their own contributions, ethics consent in stage 1).
 
+**Kazakh report, 17 Oct 2026.** At the coordinator's request the assistant
+prepared a full Kazakh version of the report (not committed; delivered as a
+PDF): sections 1–6 translated from `report.md` by AI agents with the fixes
+from `docs/REPORT_FIXES.md` (A1, A3, B1, B4, B5, C1–C4), and a new chapter on
+stage 2 (planarity test, Parallax Lab, Q4 and its exploratory analysis).
+While checking its numbers the assistant found that `npm run diagnose`
+reported the upper of the two middle values as the median for an even number
+of pairs; it now averages them (e.g. relief vs real face 65 %, not 68 %).
+The Kazakh text has not been checked by a native speaker.
+
 ## Rules going forward
 
 - Commits made with AI help keep the `Co-Authored-By` trailer.

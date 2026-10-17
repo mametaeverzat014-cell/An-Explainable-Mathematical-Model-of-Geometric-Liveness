@@ -81,7 +81,12 @@ function realFaceRelief(deg: number, facePx: number): number {
   return patternFit(a.residualVectors!, relief).v;
 }
 
-const med = (v: number[]) => (v.length ? [...v].sort((x, y) => x - y)[Math.floor(v.length / 2)] : NaN);
+const med = (v: number[]) => {
+  if (!v.length) return NaN;
+  const s = [...v].sort((x, y) => x - y);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
 function spearman(a: number[], b: number[]): number {
   const rank = (v: number[]) => {
     const o = v.map((x, i) => [x, i]).sort((p, q) => p[0] - q[0]);
